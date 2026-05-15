@@ -72,7 +72,8 @@ export default function MissedPunches() {
       setForm({ ...form, reason: '' });
       fetchRequests();
     } catch (e) {
-      addToast('提交失敗', 'error');
+      const errorMsg = e.response?.data?.details || e.response?.data?.error || '提交失敗';
+      addToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }

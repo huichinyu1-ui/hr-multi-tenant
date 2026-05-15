@@ -15,7 +15,8 @@ exports.createRequest = async (req, res) => {
     });
     res.status(201).json(request);
   } catch (error) {
-    res.status(500).json({ error: '提交申請失敗' });
+    console.error('[MissedPunch] Create error:', error);
+    res.status(500).json({ error: '提交申請失敗', details: error.message });
   }
 };
 
@@ -88,9 +89,11 @@ exports.approveRequest = async (req, res) => {
           }
         });
 
-        // 啟動考勤重新計算 (不阻塞主流程，增加錯誤捕捉)
         const AttendanceMatcher = require('../services/AttendanceMatcher');
-        AttendanceMatcher.matchAttendance(date.substring(0, 7)).catch(e => {
+        const ym = date.substring(0, 7);
+        const start = `${ym}-01`;
+        const end = `${ym}-31`; // matchAttendance 會處理日期範圍
+        AttendanceMatcher.matchAttendance(req.db, start, end).catch(e => {
           console.error('[MissedPunch] Async Matcher Error:', e);
         });
         
