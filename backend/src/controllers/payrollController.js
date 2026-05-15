@@ -627,14 +627,32 @@ exports.updatePayrollDetails = async (req, res) => {
 
     const final_salary = Math.round(total_addition - total_deduction);
 
-    const updated = await req.db.payrollRecord.update({
-      where: { id: parseInt(id) },
-      data: {
-        details: JSON.stringify(details),
-        total_addition,
-        total_deduction,
-        net_salary: final_salary
-      }
+    const updated = await req.db.$transaction(async (prisma) => {
+      await prisma.payrollDetail.deleteMany({
+        where: { payrollRecordId: parseInt(id) }
+      });
+
+      return await prisma.payrollRecord.update({
+        where: { id: parseInt(id) },
+        data: {
+          total_addition,
+          total_deduction,
+          net_salary: final_salary,
+          details: {
+            create: details.map(item => ({
+              item_code: item.item_code,
+              item_name: item.item_name,
+              amount: Number(item.amount) || 0,
+              type: item.type,
+              note: item.note || ''
+            }))
+          }
+        },
+        include: {
+          employee: true,
+          details: true
+        }
+      });
     });
 
     res.json(updated);
