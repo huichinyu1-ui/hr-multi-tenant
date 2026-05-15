@@ -25,7 +25,7 @@ class AttendanceMatcher {
    */
   static async matchAttendance(prisma, start_date, end_date) {
     // 【批次優化】一次性並行撈取所有需要的資料，完全消除 N+1 查詢問題
-    const [calendarDays, employees, leaveRequests, overtimeRequests, allDailyRecords] = await Promise.all([
+    const [calendarDays, employees, leaveRequests, overtimeRequests, allDailyRecords, missedPunchRequests] = await Promise.all([
       prisma.calendarDay.findMany({
         where: { date: { gte: start_date, lte: end_date } },
         orderBy: { date: 'asc' }
