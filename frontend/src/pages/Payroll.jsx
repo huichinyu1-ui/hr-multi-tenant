@@ -475,198 +475,195 @@ export default function Payroll() {
               </button>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto p-4 md:p-8">
-              <div className="max-w-4xl mx-auto space-y-8">
-                {/* Centered Main Title */}
-                <div className="text-center py-4 print:py-0">
-                  <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-                    {selectedRecord.year_month} 薪資結算明細
-                  </h2>
-                  <div className="w-16 h-1 bg-indigo-600 mx-auto mt-4 rounded-full print:hidden" />
+            <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-100">
+              <div className="max-w-4xl mx-auto space-y-4 print:space-y-0 print:m-0">
+                
+                {/* 1. Header Information Table */}
+                <div className="bg-white border-2 border-gray-800">
+                  <table className="w-full border-collapse text-sm">
+                    <tbody>
+                      <tr className="border-b-2 border-gray-800">
+                        <td className="w-1/6 px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">職員代碼</td>
+                        <td className="w-2/6 px-3 py-2 border-r-2 border-gray-800 font-bold">{selectedRecord.employee.code}</td>
+                        <td className="w-1/6 px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">姓名</td>
+                        <td className="w-2/6 px-3 py-2 font-bold">{selectedRecord.employee.name}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">部門</td>
+                        <td className="px-3 py-2 border-r-2 border-gray-800 font-bold">{selectedRecord.employee.department || '--'}</td>
+                        <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">支付日期</td>
+                        <td className="px-3 py-2 font-bold">{selectedRecord.year_month.replace('-', '/')}/05</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Detail Header Card */}
-                <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="bg-indigo-600 p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                      <p className="text-[10px] font-black opacity-70 uppercase tracking-widest mb-1">員工姓名 / 工號</p>
-                      <h2 className="text-3xl font-black tracking-tight">{selectedRecord.employee.name} <span className="text-sm opacity-60 ml-2">#{selectedRecord.employee.code}</span></h2>
-                    </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-[10px] font-black opacity-70 uppercase tracking-widest mb-1">實發淨額 (Net Salary)</p>
-                      <p className="text-4xl font-black">${selectedRecord.net_salary.toLocaleString()}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="text-center">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">應發總計</p>
-                      <p className="text-2xl font-black text-emerald-600">+${selectedRecord.total_addition.toLocaleString()}</p>
-                    </div>
-                    <div className="text-center border-x border-gray-100">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">應扣總計</p>
-                      <p className="text-2xl font-black text-rose-600">-${selectedRecord.total_deduction.toLocaleString()}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">確認狀態</p>
-                      <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${selectedRecord.is_read ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {selectedRecord.is_read ? '已確認' : '待確認'}
-                      </span>
-                    </div>
-                  </div>
+                {/* 2. Summary Row Table */}
+                <div className="bg-white border-2 border-gray-800">
+                  <table className="w-full border-collapse text-sm">
+                    <tbody>
+                      <tr className="font-black">
+                        <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">支付總額</td>
+                        <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-emerald-700">{selectedRecord.total_addition.toLocaleString()}</td>
+                        <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">扣除總額</td>
+                        <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-rose-700">{selectedRecord.total_deduction.toLocaleString()}</td>
+                        <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">實支付額</td>
+                        <td className="w-1/6 px-3 py-2 text-right text-indigo-700 text-lg">{selectedRecord.net_salary.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Additions */}
-                  <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8">
-                    <h3 className="text-base font-black text-emerald-700 mb-6 flex items-center gap-2">
-                      <span className="w-1.5 h-5 bg-emerald-500 rounded-full"></span> ➕ 應發項目
-                    </h3>
-                    <div className="space-y-4">
+                {/* 3. Additions Table */}
+                <div className="bg-white border-x-2 border-t-2 border-gray-400">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b-2 border-gray-400">
+                        <th className="w-5/12 py-2 border-r-2 border-gray-400 text-center font-black">津貼項目名稱</th>
+                        <th className="w-3/12 py-2 border-r-2 border-gray-400 text-center font-black">金額</th>
+                        <th className="w-4/12 py-2 text-center font-black">備註事項</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {(isEditing ? editDetails : selectedRecord.details)
                         .map((d, index) => ({...d, originalIndex: index}))
                         .filter(d => d.type === 'ADDITION')
-                        .sort((a, b) => {
-                          if (a.item_code === 'base') return -1;
-                          if (b.item_code === 'base') return 1;
-                          return 0;
-                        })
                         .map((d) => (
-                        <div key={d.originalIndex} className="flex flex-col md:flex-row justify-between items-start md:items-center text-sm py-3 border-b border-gray-50 last:border-0 gap-2">
-                          <span className="font-bold text-gray-600 min-w-[120px]">{d.item_name}</span>
-                          {isEditing ? (
-                            <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
-                              <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-gray-400 font-bold">$</span>
+                          <tr key={d.originalIndex} className="border-b border-gray-300">
+                            <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
+                            <td className="px-3 py-2 border-r-2 border-gray-300 text-right font-black">
+                              {isEditing ? (
                                 <input 
                                   type="number" 
                                   value={d.amount} 
                                   onChange={e => updateEditDetail(d.originalIndex, 'amount', e.target.value)}
-                                  className="w-full md:w-28 pl-6 pr-2 py-1 text-right border border-gray-300 rounded font-black text-emerald-600 outline-none focus:border-emerald-500"
+                                  className="w-full text-right outline-none bg-blue-50 focus:bg-white"
                                 />
-                              </div>
-                              <input 
-                                type="text" 
-                                placeholder="備註事項..." 
-                                value={d.note || ''} 
-                                onChange={e => updateEditDetail(d.originalIndex, 'note', e.target.value)}
-                                className="w-full md:w-48 text-sm px-2 py-1 border border-gray-300 rounded outline-none focus:border-emerald-500 font-bold"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3 text-right">
-                              <span className="font-black text-emerald-600">+${d.amount.toLocaleString()}</span>
-                              {d.note && <span className="text-sm text-gray-500 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{d.note}</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {selectedRecord.details.filter(d => d.type === 'ADDITION').length === 0 && (
-                        <p className="text-center text-gray-300 italic py-4">無資料</p>
-                      )}
-                    </div>
-                  </div>
+                              ) : d.amount.toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2 italic text-gray-500 text-xs">
+                              {isEditing ? (
+                                <input 
+                                  type="text" 
+                                  value={d.note || ''} 
+                                  onChange={e => updateEditDetail(d.originalIndex, 'note', e.target.value)}
+                                  className="w-full outline-none bg-blue-50 focus:bg-white"
+                                />
+                              ) : d.note}
+                            </td>
+                          </tr>
+                        ))}
+                      {/* Addition Total Row */}
+                      <tr className="bg-gray-50 font-black border-b-2 border-gray-400">
+                        <td className="px-3 py-2 border-r-2 border-gray-300 text-center">合計</td>
+                        <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-emerald-700">{selectedRecord.total_addition.toLocaleString()}</td>
+                        <td className="px-3 py-2"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-                  {/* Deductions */}
-                  <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8">
-                    <h3 className="text-base font-black text-rose-700 mb-6 flex items-center gap-2">
-                      <span className="w-1.5 h-5 bg-rose-500 rounded-full"></span> ➖ 應扣項目
-                    </h3>
-                    <div className="space-y-4">
+                {/* 4. Deductions Table */}
+                <div className="bg-white border-x-2 border-y-2 border-gray-800">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b-2 border-gray-800">
+                        <th className="w-5/12 py-2 border-r-2 border-gray-800 text-center font-black">扣除項目名稱</th>
+                        <th className="w-3/12 py-2 border-r-2 border-gray-800 text-center font-black">金額</th>
+                        <th className="w-4/12 py-2 text-center font-black">備註事項</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {(isEditing ? editDetails : selectedRecord.details)
                         .map((d, index) => ({...d, originalIndex: index}))
                         .filter(d => d.type === 'DEDUCTION')
                         .map((d) => (
-                        <div key={d.originalIndex} className="flex flex-col md:flex-row justify-between items-start md:items-center text-sm py-3 border-b border-gray-50 last:border-0 gap-2">
-                          <span className="font-bold text-gray-600 min-w-[120px]">{d.item_name}</span>
-                          {isEditing ? (
-                            <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
-                              <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-gray-400 font-bold">$</span>
+                          <tr key={d.originalIndex} className="border-b border-gray-300">
+                            <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
+                            <td className="px-3 py-2 border-r-2 border-gray-300 text-right font-black">
+                              {isEditing ? (
                                 <input 
                                   type="number" 
                                   value={d.amount} 
                                   onChange={e => updateEditDetail(d.originalIndex, 'amount', e.target.value)}
-                                  className="w-full md:w-28 pl-6 pr-2 py-1 text-right border border-gray-300 rounded font-black text-rose-600 outline-none focus:border-rose-500"
+                                  className="w-full text-right outline-none bg-blue-50 focus:bg-white"
                                 />
-                              </div>
-                              <input 
-                                type="text" 
-                                placeholder="備註事項..." 
-                                value={d.note || ''} 
-                                onChange={e => updateEditDetail(d.originalIndex, 'note', e.target.value)}
-                                className="w-full md:w-48 text-sm px-2 py-1 border border-gray-300 rounded outline-none focus:border-rose-500 font-bold"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3 text-right">
-                              <span className="font-black text-rose-600">-${d.amount.toLocaleString()}</span>
-                              {d.note && <span className="text-sm text-gray-500 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{d.note}</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {selectedRecord.details.filter(d => d.type === 'DEDUCTION').length === 0 && (
-                        <p className="text-center text-gray-300 italic py-4">無資料</p>
-                      )}
-                    </div>
-                  </div>
+                              ) : d.amount.toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2 italic text-gray-500 text-xs">
+                              {isEditing ? (
+                                <input 
+                                  type="text" 
+                                  value={d.note || ''} 
+                                  onChange={e => updateEditDetail(d.originalIndex, 'note', e.target.value)}
+                                  className="w-full outline-none bg-blue-50 focus:bg-white px-1"
+                                />
+                              ) : d.note}
+                            </td>
+                          </tr>
+                        ))}
+                      {/* Deduction Total Row */}
+                      <tr className="bg-gray-50 font-black">
+                        <td className="px-3 py-2 border-r-2 border-gray-300 text-center">合計</td>
+                        <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-rose-700">{selectedRecord.total_deduction.toLocaleString()}</td>
+                        <td className="px-3 py-2"></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Bottom Action Footer */}
-                <div className="bg-white rounded-[2rem] border border-gray-200 p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+                {/* Status and Action Buttons */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-4 pb-12 print:pb-0">
                    <div className="flex items-center gap-3">
                       {selectedRecord.is_read ? (
-                        <div className="flex items-center gap-2 text-emerald-600">
+                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
                           <CheckCircle size={20} />
-                          <span className="text-xs font-bold">已於 {new Date(selectedRecord.read_at).toLocaleString()} 確認完畢</span>
+                          <span className="text-sm font-bold">已確認完畢 ({new Date(selectedRecord.read_at).toLocaleDateString()})</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-amber-500">
+                        <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-200">
                           <AlertCircle size={20} />
-                          <span className="text-xs font-bold">請詳細核對加扣項，確認無誤後請點擊確認。</span>
+                          <span className="text-sm font-bold">待員工確認中</span>
                         </div>
                       )}
                    </div>
+                   
                    <div className="flex flex-wrap gap-3 w-full md:w-auto print:hidden">
-                      {canManage && selectedRecord.status !== 'FINALIZED' && !isEditing && (
-                        <button 
-                          onClick={() => {
-                            setEditDetails(JSON.parse(JSON.stringify(selectedRecord.details)));
-                            setIsEditing(true);
-                          }} 
-                          className="flex-1 md:flex-none bg-white border border-indigo-200 text-indigo-600 px-6 py-3 rounded-xl font-black hover:bg-indigo-50 transition-all"
-                        >
-                          ✏️ 手動編輯明細
-                        </button>
-                      )}
-                      {isEditing && (
+                      {isEditing ? (
                         <>
-                          <button onClick={() => setIsEditing(false)} className="flex-1 md:flex-none bg-gray-100 text-gray-600 px-6 py-3 rounded-xl font-black hover:bg-gray-200 transition-all">
+                          <button onClick={() => setIsEditing(false)} className="px-6 py-2 bg-gray-200 text-gray-600 font-black rounded-lg hover:bg-gray-300 transition-all">
                             取消編輯
                           </button>
-                          <button onClick={handleSaveDetails} disabled={loading} className="flex-1 md:flex-none bg-indigo-600 text-white px-8 py-3 rounded-xl font-black hover:bg-indigo-700 transition-all">
-                            {loading ? '儲存中...' : '💾 儲存修改'}
+                          <button onClick={handleSaveDetails} className="px-8 py-2 bg-indigo-600 text-white font-black rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">
+                            💾 儲存修改
                           </button>
                         </>
-                      )}
-                      
-                      {!isEditing && (
+                      ) : (
                         <>
-                          <button 
-                            onClick={() => window.print()} 
-                            className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-black hover:bg-gray-50 transition-all flex items-center gap-2"
-                          >
-                            列印薪資單
+                          <button onClick={() => window.print()} className="px-6 py-2 bg-white border border-gray-300 text-gray-700 font-black rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2">
+                            <Printer size={18} /> 列印薪資單
                           </button>
-                          {(Number(selectedRecord.employeeId) === Number(user.id) || isSelf) && !selectedRecord.is_read && (
-                            <button onClick={() => handleMarkRead(selectedRecord.id)} className="flex-1 md:flex-none bg-emerald-600 text-white px-8 py-3 rounded-xl font-black hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all">
+                          
+                          {canManage && selectedRecord.status !== 'FINALIZED' && (
+                            <button 
+                              onClick={() => {
+                                setEditDetails(JSON.parse(JSON.stringify(selectedRecord.details)));
+                                setIsEditing(true);
+                              }} 
+                              className="px-6 py-2 bg-white border border-indigo-200 text-indigo-600 font-black rounded-lg hover:bg-indigo-50 transition-all"
+                            >
+                              ✏️ 手動編輯
+                            </button>
+                          )}
+
+                          {((Number(selectedRecord.employeeId) === Number(user.id) || isSelf) && !selectedRecord.is_read) && (
+                            <button onClick={() => handleMarkRead(selectedRecord.id)} className="px-8 py-2 bg-emerald-600 text-white font-black rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all">
                               確認正確
                             </button>
                           )}
+
                           {canManage && selectedRecord.is_read && (
-                            <button onClick={() => handleUnmarkRead(selectedRecord.id)} className="flex-1 md:flex-none bg-rose-50 text-rose-600 px-8 py-3 rounded-xl font-black hover:bg-rose-100 transition-all">
+                            <button onClick={() => handleUnmarkRead(selectedRecord.id)} className="px-8 py-2 bg-rose-50 text-rose-600 font-black rounded-lg hover:bg-rose-100 transition-all">
                               管理員取消確認
                             </button>
                           )}
