@@ -15,6 +15,7 @@ export default function MissedPunches() {
 
   const [requests, setRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [processingId, setProcessingId] = useState(null);
   const [form, setForm] = useState({
     employeeId: user.id || '',
     date: new Date().toISOString().split('T')[0],
@@ -81,23 +82,29 @@ export default function MissedPunches() {
   };
 
   const handleApprove = async (id, status) => {
+    setProcessingId(id);
     try {
       await api.put(`/missed-punches/${id}/approve`, { status });
       addToast(`申請已${status === 'APPROVED' ? '核准' : '駁回'}`, 'success');
       fetchRequests();
     } catch (e) {
       addToast(e.response?.data?.details || '操作失敗', 'error');
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('確定要刪除/撤回此申請嗎？')) return;
+    setProcessingId(id);
     try {
       await api.delete(`/missed-punches/${id}`);
       addToast('已刪除/撤回申請', 'success');
       fetchRequests();
     } catch (e) {
       addToast(e.response?.data?.error || '刪除失敗', 'error');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -364,15 +371,19 @@ export default function MissedPunches() {
                                 <>
                                   <button
                                     onClick={() => handleApprove(req.id, 'APPROVED')}
-                                    className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-all"
+                                    disabled={processingId === req.id}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                   >
-                                    <CheckCircle size={12} /> 核准
+                                    {processingId === req.id ? <span className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span> : <CheckCircle size={12} />}
+                                    核准
                                   </button>
                                   <button
                                     onClick={() => handleApprove(req.id, 'REJECTED')}
-                                    className="flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-bold transition-all"
+                                    disabled={processingId === req.id}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                   >
-                                    <XCircle size={12} /> 駁回
+                                    {processingId === req.id ? <span className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></span> : <XCircle size={12} />}
+                                    駁回
                                   </button>
                                 </>
                               )}

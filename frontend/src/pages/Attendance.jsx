@@ -278,9 +278,16 @@ export default function Attendance() {
               <button 
                 onClick={handleMatch} 
                 disabled={loading}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs md:text-sm font-black hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                className={`px-4 py-2 rounded-lg text-xs md:text-sm font-black transition-all flex items-center gap-2 shadow-sm ${
+                  loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'
+                } text-white`}
               >
-                <Zap size={16} className={loading ? 'animate-pulse' : ''} /> {loading ? '同步中...' : '一鍵同步'}
+                {loading ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <Zap size={16} />
+                )}
+                {loading ? '計算對帳中...' : '一鍵同步'}
               </button>
             )}
           </div>
