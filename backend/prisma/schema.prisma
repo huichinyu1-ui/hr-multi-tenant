@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  base_salary           Float     
+  full_attendance_bonus Float     @default(0) // 全勤獎金
+  production_bonus      Float     @default(0) // 生產獎金
+  performance_bonus     Float     @default(0) // 績效獎金
+  meal_allowance        Float     @default(0) // 伙食津貼
+  festival_bonus        Float     @default(0) // 三節獎金
+  status                String    @default("ACTIVE") // ACTIVE, INACTIVE
+  username              String?   @unique
+  password              String?   @default("password123")
+  role                  String    @default("EMPLOYEE") // ADMIN, EMPLOYEE, COLLABORATOR
+
+  gender                String?   
+  birthday              String?   
+  id_number             String?   
+  phone                 String?   
+  email                 String?
+  address               String?
+  emergency_contact     String?
+  emergency_phone       String?
+  emergency_relationship String? 
+
+  department            String?   
+  position              String?   
+  join_date             String?   
+  probation_date        String?   
+  resign_date           String?   
+  employment_type       String    @default("FULL_TIME") 
+
+  bank_code             String?   
+  bank_account          String?   
+  insurance_salary      Float     @default(0) 
+  health_dependents     Int       @default(0) // 健保隨同投保眷屬人數
+  pension_rate          Float     @default(0) // 勞退個人自提比例
+
+  custom_1              Float     @default(0) // 自訂項目 1
+  custom_2              Float     @default(0) // 自訂項目 2
+  custom_3              Float     @default(0) // 自訂項目 3
+  custom_4              Float     @default(0) // 自訂項目 4
+  custom_5              Float     @default(0) // 自訂項目 5
+  custom_6              Float     @default(0) // 自訂項目 6
+
+  attendances   Attendance[]
+  overrides     EmployeeItemOverride[]
+  payrolls      PayrollRecord[]
+  leaveRequests LeaveRequest[]
+  overtimeRequests OvertimeRequest[]
+  dailyRecords  DailyRecord[]
+  notifications Notification[]
+  missedPunchRequests MissedPunchRequest[]
+  applied_items PayrollItem[] @relation("ItemToEmployee")
+  leaveQuotas  LeaveQuota[]
+  eligibleLeaveTypes LeaveType[] @relation("LeaveTypeEligibility")
+  webAuthnCredentials WebAuthnCredential[]
+
+  workShiftId   Int?
+  workShift     WorkShift?    @relation(fields: [workShiftId], references: [id])
+
+  roleId        Int?          
+  roleRef       Role?         @relation(fields: [roleId], references: [id])
+
+  insurancePolicyId Int?
+  insurancePolicy   InsurancePolicy? @relation(fields: [insurancePolicyId], references: [id])
+
+  custom_field1 String?
+  custom_field2 String?
+  custom_field3 String?
+  custom_field4 String?
+  custom_field5 String?
+  custom_field6 String?
+}
+
+model WorkShift {
+  id                Int        @id @default(autoincrement())
+  code              String     @unique
+  name              String
+  work_start        String     
+  work_end          String     
+  rest_start        String?    
+  rest_end          String?    
+  overtime_start    String?    
+  late_buffer_mins  Int        @default(0)
+  punch_in_window_mins Int       @default(240)
+  overtime_min_unit Int        @default(30)
+
+  employees         Employee[]
+}
+
+model Attendance {
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  year_month  String    
+  late_days   Int       @default(0)
+  absent_count Int       @default(0)
+  work_hours  Float     @default(0)
+
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, year_month])
+}
+
+model PayrollItem {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  name           String
+  type           String    
+  calc_type      String    
+  default_amount Float?
+  formula_expr   String?
+  sort_order     Int       @default(0) 
+  note           String?   
+  is_active      Boolean   @default(true)
+  is_global      Boolean   @default(true)
+
+  overrides         EmployeeItemOverride[]
+  applied_employees Employee[] @relation("ItemToEmployee")
+}
+
+model EmployeeItemOverride {
+  id             Int       @id @default(autoincrement())
+  employeeId     Int
+  payrollItemId  Int
+  custom_amount  Float?
+  custom_formula String?
+
+  employee       Employee    @relation(fields: [employeeId], references: [id])
+  payrollItem    PayrollItem @relation(fields: [payrollItemId], references: [id])
+
+  @@unique([employeeId, payrollItemId])
+}
+
+model PayrollRecord {
+  id              Int       @id @default(autoincrement())
+  employeeId      Int
+  year_month      String
+  total_addition  Float
+  total_deduction Float
+  net_salary      Float
+  status          String    @default("DRAFT") 
+  is_read         Boolean   @default(false)
+  read_at         DateTime?
+
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  details         PayrollDetail[]
+
+  @@unique([employeeId, year_month])
+}
+
+model PayrollDetail {
+  id              Int       @id @default(autoincrement())
+  payrollRecordId Int
+  item_code       String
+  item_name       String
+  amount          Float
+  type            String    
+  note            String?   
+
+  payrollRecord   PayrollRecord @relation(fields: [payrollRecordId], references: [id], onDelete: Cascade)
+}
+
+model LeaveType {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  name            String
+  is_paid         Boolean
+  deduction_ratio Float     @default(1.0)
+  deduction_base  String?   @default("{base_salary}") // 扣款基準公式
+  quota_type      String?   @default("UNLIMITED")     // 額度類型: FIXED, SENIORITY, UNLIMITED
+  default_days    Float?    @default(0)               // FIXED 預設給假天數
+  seniority_rules String?                             // SENIORITY 年資級距表 (JSON string)
+  is_all_employees Boolean   @default(true) 
+  note            String?   // 備註欄位
+  eligibleEmployees Employee[] @relation("LeaveTypeEligibility")
+  requests        LeaveRequest[]
+  quotas          LeaveQuota[]
+}
+
+model LeaveRequest {
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  leaveTypeId Int
+  start_date  String
+  start_time  String?   @default("08:00")
+  end_date    String
+  end_time    String?   @default("17:00")
+  status      String    @default("PENDING")
+  reason      String?
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+}
+
+model WebAuthnCredential {
+  id           Int      @id @default(autoincrement())
+  employeeId   Int
+  credentialId String   @unique  // Base64URL encoded credential ID from authenticator
+  publicKey    String            // Base64URL encoded public key
+  counter      Int      @default(0) // Signature counter for replay attack prevention
+  deviceName   String?           // e.g., "Stanley 的 iPhone"
+  createdAt    DateTime @default(now())
+
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model DailyRecord {
+  id                Int       @id @default(autoincrement())
+  employeeId        Int
+  date              String
+  clock_in          String?
+  clock_out         String?
+  status            String    @default("PRESENT")
+  leave_code        String?
+  late_mins         Int       @default(0)
+  early_leave_mins  Int       @default(0)
+  clock_in_status   String?    // e.g. NORMAL, LATE, TOO_EARLY
+  clock_out_status  String?    // e.g. NORMAL, EARLY_LEAVE, INVALID
+  work_mins         Int        @default(0)
+  overtime1_mins    Int       @default(0)
+  overtime2_mins    Int       @default(0)
+  holiday_overtime_mins Int   @default(0)
+
+  // GPS 線上打卡
+  clock_in_lat      Float?
+  clock_in_lng      Float?
+  clock_out_lat     Float?
+  clock_out_lng     Float?
+  punch_method      String?   @default("EXCEL") // WEB, EXCEL
+
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  @@unique([employeeId, date])
+}
+
+model CalendarDay {
+  id          Int       @id @default(autoincrement())
+  date        String    @unique
+  is_workday  Boolean   @default(true)
+  description String?
+}
+
+model Notification {
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  title       String
+  message     String
+  is_read     Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+}
+
+model MissedPunchRequest {
+  id           Int      @id @default(autoincrement())
+  employeeId   Int
+  date         String   
+  punch_type   String   
+  target_time  String   
+  reason       String?  
+  status       String   @default("PENDING") 
+  created_at   DateTime @default(now())
+
+  employee     Employee @relation(fields: [employeeId], references: [id])
+}
+
+model OvertimeRequest {
+  id          Int       @id @default(autoincrement())
+  employeeId  Int
+  date        String    
+  start_time  String    
+  end_time    String    
+  reason      String?  
+  status      String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  created_at  DateTime  @default(now())
+
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+}
+
+model LeaveQuota {
+  id           Int      @id @default(autoincrement())
+  employeeId   Int
+  leaveTypeId  Int
+  year         Int
+  total_hours  Float    @default(0) 
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([employeeId, leaveTypeId, year])
+}
+
+model Metadata {
+  id    Int    @id @default(autoincrement())
+  type  String // DEPARTMENT, POSITION, EMPLOYMENT_TYPE, SYSTEM_SETTING
+  label String
+  value String
+
+  @@unique([type, value])
+}
+
+model Company {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  db_url      String
+  db_token    String
+  status      String   @default("ACTIVE")
+  created_at  DateTime @default(now())
+}
+
+model InsuranceGrade {
+  id                Int      @id @default(autoincrement())
+  type              String   // LABOR, HEALTH, PENSION
+  grade             Int      
+  salary_range_start Float
+  salary_range_end   Float
+  insured_salary    Float    // 投保薪資基準
+  
+  employee_ratio    Float    @default(0) // 預設員工負擔比例
+  employer_ratio    Float    @default(0) // 預設雇主負擔比例
+  
+  note              String?
+
+  @@unique([type, grade])
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false) 
+  employees   Employee[]
+  permissions RolePermission[]
+}
+
+model RolePermission {
+  id         Int     @id @default(autoincrement())
+  roleId     Int
+  module     String  // EMP, ATT, LEAVE, PAYROLL, MISSED_PUNCH, CALENDAR, SHIFT, FORMULA
+  canView           Boolean @default(false)
+  canCreate         Boolean @default(false)
+  canEdit           Boolean @default(false)
+  canDelete         Boolean @default(false)
+  selfOnly          Boolean @default(false) 
+  canApprove        Boolean @default(false)
+  canImport         Boolean @default(false)
+  canPunch          Boolean @default(false) // 允許線上打卡
+  canManagePayroll  Boolean @default(false)
+  canManageRole     Boolean @default(false)
+  canManageMetadata Boolean @default(false)
+  canManageSettings Boolean @default(false) // 系統設定權限
+
+  role       Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module])
+}
+
+model InsurancePolicy {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  hasLabor    Boolean  @default(true)
+  hasHealth   Boolean  @default(true)
+  hasPension  Boolean  @default(true)
+  hasJobIns   Boolean  @default(true) // 就業保險
+  
+  employees   Employee[]
+}
+
+// 保費級距版本管理（支援多年度自定上傳）
+model InsurancePresetVersion {
+  id          Int      @id @default(autoincrement())
+  name        String   // "2025年 政府標準級距"
+  year        Int      @default(0)
+  source      String   @default("UPLOAD") // BUILTIN / UPLOAD / MANUAL
+  // 費率（直接儲存計算用比例）
+  labor_emp_rate    Float @default(0.025)    // 員工勞保自付比例
+  labor_empr_rate   Float @default(0.0875)   // 雇主勞保負擔比例
+  health_emp_rate   Float @default(0.01551)  // 員工健保自付比例
+  health_empr_rate  Float @default(0.04866)  // 雇主健保負擔比例
+  pension_emp_rate  Float @default(0)        // 員工勞退自提比例
+  pension_empr_rate Float @default(0.06)     // 雇主勞退提繳比例
+  // 費率原始設定（供UI顯示用）
+  labor_total_pct    Float @default(12.5)
+  labor_emp_pct      Float @default(20)
+  health_total_pct   Float @default(5.17)
+  health_emp_pct     Float @default(30)
+  created_at  DateTime @default(now())
+  grades      InsurancePresetGrade[]
+}
+
+model InsurancePresetGrade {
+  id                 Int    @id @default(autoincrement())
+  versionId          Int
+  type               String // LABOR / HEALTH / PENSION
+  grade              Int
+  salary_range_start Float
+  salary_range_end   Float
+  insured_salary     Float
+  version            InsurancePresetVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, type])
+}
