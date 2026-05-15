@@ -51,6 +51,10 @@ class AttendanceMatcher {
       // 一次撈取「所有員工」當月所有打卡紀錄，不再逐人查詢
       prisma.dailyRecord.findMany({
         where: { date: { gte: start_date, lte: end_date } }
+      }),
+      // 新增：撈取所有已核准的補打卡申請
+      prisma.missedPunchRequest.findMany({
+        where: { status: 'APPROVED', date: { gte: start_date, lte: end_date } }
       })
     ]);
 
@@ -71,6 +75,13 @@ class AttendanceMatcher {
 
     const otByEmpDate = new Map();
     overtimeRequests.forEach(ot => otByEmpDate.set(`${ot.employeeId}_${ot.date}`, ot));
+    
+    const mpByEmpDate = new Map();
+    missedPunchRequests.forEach(mp => {
+      const key = `${mp.employeeId}_${mp.date}`;
+      if (!mpByEmpDate.has(key)) mpByEmpDate.set(key, []);
+      mpByEmpDate.get(key).push(mp);
+    });
 
     // 在記憶體中計算所有需要的變更，累積成操作陣列
     const operations = [];
@@ -111,9 +122,21 @@ class AttendanceMatcher {
         if (emp.resign_date && dateStr > emp.resign_date) continue;
 
         const existingRecord = recordMap.get(`${emp.id}_${dateStr}`);
-        const hasClock = existingRecord && (existingRecord.clock_in || existingRecord.clock_out);
+        // 關鍵：這裡的 hasClock 包含了「補打卡」後寫入 DailyRecord 的時間
         const leave = empLeaves.find(lr => dateStr >= lr.start_date && dateStr <= lr.end_date);
         const otReq = otByEmpDate.get(`${emp.id}_${dateStr}`);
+        const mps = mpByEmpDate.get(`${emp.id}_${dateStr}`) || [];
+        
+        // 核心邏輯：將補打卡的時間套用到現有紀錄（或建立虛擬紀錄供計算）
+        let effectiveClockIn = existingRecord?.clock_in || null;
+        let effectiveClockOut = existingRecord?.clock_out || null;
+        
+        mps.forEach(mp => {
+          if (mp.punch_type === 'IN') effectiveClockIn = mp.target_time;
+          if (mp.punch_type === 'OUT') effectiveClockOut = mp.target_time;
+        });
+
+        const hasClock = effectiveClockIn || effectiveClockOut;
 
         if (cDay.is_workday) {
           if (!hasClock) {
@@ -125,7 +148,7 @@ class AttendanceMatcher {
               pushIfChanged(existingRecord, emp.id, dateStr, newData);
             }
           } else {
-            const parsed = AttendanceMatcher.parseAttendance(existingRecord, shift);
+            const parsed = AttendanceMatcher.parseAttendance({ clock_in: effectiveClockIn, clock_out: effectiveClockOut }, shift);
             let finalStatus = 'PRESENT';
             if (parsed.clock_in_status === 'ABSENT') finalStatus = 'ABSENT';
             else if (parsed.late_mins > 0) finalStatus = 'LATE';
@@ -143,7 +166,9 @@ class AttendanceMatcher {
               work_mins: parsed.work_mins,
               overtime1_mins: parsed.overtime1_mins,
               overtime2_mins: parsed.overtime2_mins,
-              holiday_overtime_mins: 0
+              holiday_overtime_mins: 0,
+              clock_in: effectiveClockIn,
+              clock_out: effectiveClockOut
             };
             pushIfChanged(existingRecord, emp.id, dateStr, newData);
           }
@@ -153,8 +178,8 @@ class AttendanceMatcher {
             if (otReq && existingRecord.clock_in && existingRecord.clock_out) {
               const reqStart = timeToMins(otReq.start_time);
               const reqEnd = timeToMins(otReq.end_time);
-              const actStart = timeToMins(existingRecord.clock_in);
-              const actEnd = timeToMins(existingRecord.clock_out);
+              const actStart = timeToMins(effectiveClockIn);
+              const actEnd = timeToMins(effectiveClockOut);
               const overlapStart = Math.max(reqStart, actStart);
               const overlapEnd = Math.min(reqEnd, actEnd);
               if (overlapEnd > overlapStart) {
