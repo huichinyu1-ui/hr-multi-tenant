@@ -108,16 +108,18 @@ exports.calculatePayroll = async (req, res) => {
       const empFieldSnapshot = { ...pool };
 
       const processItem = (item) => {
-        // 檢查套用範圍：如果設定了特定員工範圍，且當前員工不在範圍內，則跳過此項目
-        if (item.applied_employees && item.applied_employees.length > 0) {
+        const override = emp.overrides.find(o => o.payrollItemId === item.id);
+
+        // 檢查套用範圍：
+        // 只有在「沒有個人覆寫」的情況下，才受限於項目的套用範圍設定
+        if (!override && item.applied_employees && item.applied_employees.length > 0) {
           const isApplied = item.applied_employees.some(a => Number(a.id) === Number(emp.id));
           if (!isApplied) {
-            pool[item.code] = 0; // 確保變數池中該項目值為 0，避免被其他公式誤用
+            pool[item.code] = 0; // 確保變數池中該項目值為 0
             return;
           }
         }
 
-        const override = emp.overrides.find(o => o.payrollItemId === item.id);
         let amount = 0;
 
         if (override && override.custom_amount !== null) {
