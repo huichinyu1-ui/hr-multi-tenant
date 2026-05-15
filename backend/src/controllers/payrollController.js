@@ -633,7 +633,7 @@ exports.updatePayrollDetails = async (req, res) => {
         details: JSON.stringify(details),
         total_addition,
         total_deduction,
-        final_salary: final_salary
+        net_salary: final_salary
       }
     });
 
