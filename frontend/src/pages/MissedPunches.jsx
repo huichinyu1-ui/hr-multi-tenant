@@ -388,14 +388,16 @@ export default function MissedPunches() {
                                 </>
                               )}
                               {/* 已核准/駁回：canApprove 可重置回待審核 */}
-                              {canApprove && req.status !== 'PENDING' && (
-                                <button
-                                  onClick={() => handleApprove(req.id, 'PENDING')}
-                                  className="px-2.5 py-1 bg-gray-100 text-gray-500 hover:bg-gray-200 rounded-lg text-xs font-bold transition-all"
-                                >
-                                  重置
-                                </button>
-                              )}
+                                {canApprove && req.status !== 'PENDING' && (
+                                  <button
+                                    onClick={() => handleApprove(req.id, 'PENDING')}
+                                    disabled={processingId === req.id}
+                                    className="px-2.5 py-1 bg-gray-100 text-gray-500 hover:bg-gray-200 rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {processingId === req.id && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>}
+                                    重置
+                                  </button>
+                                )}
                               {/* 刪除：canDelete 且（是管理員 或 是自己的 PENDING 紀錄）*/}
                               {canDelete && (canApprove || (req.employeeId === user.id && req.status === 'PENDING')) && (
                                 <button

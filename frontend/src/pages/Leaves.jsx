@@ -24,6 +24,8 @@ export default function Leaves() {
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [processingId, setProcessingId] = useState(null);
+  const [processingOtId, setProcessingOtId] = useState(null);
 
   // 自定義顯示欄位
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -149,11 +151,13 @@ export default function Leaves() {
   };
 
   const handleUpdateOtStatus = async (id, status) => {
+    setProcessingOtId(id);
     try {
       await api.put(`/overtime/${id}/status`, { status });
       addToast('狀態更新成功', 'success');
       fetchData();
     } catch (e) { addToast('操作失敗', 'error'); }
+    finally { setProcessingOtId(null); }
   };
 
   const handleDeleteOt = async (id) => {
@@ -197,10 +201,12 @@ export default function Leaves() {
   };
 
   const handleUpdateStatus = async (id, status) => {
+    setProcessingId(id);
     try {
       await api.put(`/leaves/requests/${id}/status`, { status });
       fetchData();
     } catch (e) { addToast('更新失敗', 'error'); }
+    finally { setProcessingId(null); }
   };
 
   const handleBatchDelete = async () => {
@@ -502,11 +508,20 @@ export default function Leaves() {
                         {canApprove ? (
                           req.status === 'PENDING' ? (
                             <>
-                              <button onClick={() => handleUpdateStatus(req.id, 'APPROVED')} className="text-emerald-600 hover:underline font-bold flex items-center gap-1"><CheckCircle size={14}/> 核准</button>
-                              <button onClick={() => handleUpdateStatus(req.id, 'REJECTED')} className="text-rose-600 hover:underline font-bold flex items-center gap-1"><X size={14}/> 駁回</button>
+                              <button onClick={() => handleUpdateStatus(req.id, 'APPROVED')} disabled={processingId === req.id} className="text-emerald-600 hover:underline font-bold flex items-center gap-1 disabled:opacity-50">
+                                {processingId === req.id ? <span className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span> : <CheckCircle size={14}/>}
+                                核准
+                              </button>
+                              <button onClick={() => handleUpdateStatus(req.id, 'REJECTED')} disabled={processingId === req.id} className="text-rose-600 hover:underline font-bold flex items-center gap-1 disabled:opacity-50">
+                                {processingId === req.id ? <span className="w-3 h-3 border-2 border-rose-400 border-t-transparent rounded-full animate-spin"></span> : <X size={14}/>}
+                                駁回
+                              </button>
                             </>
                           ) : (
-                            <button onClick={() => handleUpdateStatus(req.id, 'PENDING')} className="text-gray-400 hover:text-indigo-600 font-bold flex items-center gap-1"><Clock size={14}/> 重置</button>
+                            <button onClick={() => handleUpdateStatus(req.id, 'PENDING')} disabled={processingId === req.id} className="text-gray-400 hover:text-indigo-600 font-bold flex items-center gap-1 disabled:opacity-50">
+                              {processingId === req.id ? <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span> : <Clock size={14}/>}
+                              重置
+                            </button>
                           )
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
@@ -566,11 +581,20 @@ export default function Leaves() {
                         {canApprove ? (
                           req.status === 'PENDING' ? (
                             <>
-                              <button onClick={() => handleUpdateOtStatus(req.id, 'APPROVED')} className="text-emerald-600 hover:underline font-bold flex items-center gap-1"><CheckCircle size={14}/> 核准</button>
-                              <button onClick={() => handleUpdateOtStatus(req.id, 'REJECTED')} className="text-rose-600 hover:underline font-bold flex items-center gap-1"><X size={14}/> 駁回</button>
+                              <button onClick={() => handleUpdateOtStatus(req.id, 'APPROVED')} disabled={processingOtId === req.id} className="text-emerald-600 hover:underline font-bold flex items-center gap-1 disabled:opacity-50">
+                                {processingOtId === req.id ? <span className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span> : <CheckCircle size={14}/>}
+                                核准
+                              </button>
+                              <button onClick={() => handleUpdateOtStatus(req.id, 'REJECTED')} disabled={processingOtId === req.id} className="text-rose-600 hover:underline font-bold flex items-center gap-1 disabled:opacity-50">
+                                {processingOtId === req.id ? <span className="w-3 h-3 border-2 border-rose-400 border-t-transparent rounded-full animate-spin"></span> : <X size={14}/>}
+                                駁回
+                              </button>
                             </>
                           ) : (
-                            <button onClick={() => handleUpdateOtStatus(req.id, 'PENDING')} className="text-gray-400 hover:text-indigo-600 font-bold flex items-center gap-1"><Clock size={14}/> 重置</button>
+                            <button onClick={() => handleUpdateOtStatus(req.id, 'PENDING')} disabled={processingOtId === req.id} className="text-gray-400 hover:text-indigo-600 font-bold flex items-center gap-1 disabled:opacity-50">
+                              {processingOtId === req.id ? <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span> : <Clock size={14}/>}
+                              重置
+                            </button>
                           )
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
