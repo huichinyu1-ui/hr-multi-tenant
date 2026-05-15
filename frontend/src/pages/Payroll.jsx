@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, User, FileSpreadsheet, CheckCircle, TrendingUp, Unlock, AlertCircle, X, Filter, Settings, Search } from 'lucide-react';
+import { Calculator, User, FileSpreadsheet, CheckCircle, TrendingUp, Unlock, AlertCircle, X, Filter, Settings, Search, Printer, AlertTriangle } from 'lucide-react';
 import api from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermission } from '../contexts/PermissionContext';
@@ -74,6 +74,7 @@ export default function Payroll() {
       ]);
       setPayrolls(res.data);
       setEmployees(empRes.data);
+      const totalNet = results.reduce((sum, p) => sum + p.net_salary, 0);
       setStats({
         totalNet,
         totalEmployees: empRes.data.length,
