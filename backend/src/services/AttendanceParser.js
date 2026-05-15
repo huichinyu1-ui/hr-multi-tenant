@@ -66,27 +66,33 @@ class AttendanceParser {
     const dateStr = formatExcelDate(dateSerial);
     if (!dateStr) return;
 
-    // Time columns are startCol + 2, 3, 4, 5, 6, 7
-    const times = [];
-    for (let c = startCol + 2; c <= startCol + 7; c++) {
-      const timeVal = formatExcelTime(row[c]);
-      if (timeVal) times.push(timeVal);
-    }
+    // 定義上班與下班的欄位索引 (相對於 startCol)
+    const inCols = [2, 4, 6];
+    const outCols = [3, 5, 7];
 
-    if (times.length > 0) {
-      // Sort times just in case they are out of order
-      times.sort();
-      const clockIn = times[0];
-      const clockOut = times[times.length - 1]; // Could be same as clockIn if only one punch
-      
-      // If only one punch, assume it's clock_in (user forgot to clock out)
-      const isSinglePunch = times.length === 1;
+    const inTimes = [];
+    const outTimes = [];
+
+    inCols.forEach(offset => {
+      const t = formatExcelTime(row[startCol + offset]);
+      if (t) inTimes.push(t);
+    });
+
+    outCols.forEach(offset => {
+      const t = formatExcelTime(row[startCol + offset]);
+      if (t) outTimes.push(t);
+    });
+
+    if (inTimes.length > 0 || outTimes.length > 0) {
+      // 上班取最早，下班取最晚
+      const clockIn = inTimes.length > 0 ? inTimes.sort()[0] : null;
+      const clockOut = outTimes.length > 0 ? outTimes.sort()[outTimes.length - 1] : null;
 
       records.push({
         employee_code: empCode,
         date: dateStr,
         clock_in: clockIn,
-        clock_out: isSinglePunch ? null : clockOut
+        clock_out: clockOut
       });
     }
   }
