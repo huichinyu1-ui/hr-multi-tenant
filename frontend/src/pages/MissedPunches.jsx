@@ -7,7 +7,7 @@ import api from '../utils/api';
 export default function MissedPunches() {
   const { addToast } = useToast();
   const { hasPermission, isSelfOnly } = usePermission();
-  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
   const canApprove  = hasPermission('MISSED_PUNCH', 'canApprove');
   const canDelete   = hasPermission('MISSED_PUNCH', 'canDelete');
   const canCreate   = hasPermission('MISSED_PUNCH', 'canCreate');
@@ -16,6 +16,7 @@ export default function MissedPunches() {
   const [requests, setRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [form, setForm] = useState({
+    employeeId: user.id || '',
     date: new Date().toISOString().split('T')[0],
     punch_type: 'IN',
     target_time: '09:00',
@@ -67,7 +68,7 @@ export default function MissedPunches() {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post('/missed-punches', { ...form, employeeId: user.id });
+      await api.post('/missed-punches', form);
       addToast('申請已提交', 'success');
       setForm({ ...form, reason: '' });
       fetchRequests();
@@ -210,6 +211,22 @@ export default function MissedPunches() {
                 </div>
                 <div className="p-5">
                   <form onSubmit={handleSubmit} className="space-y-4">
+                    {!isMissedSelfOnly && (
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">員工</label>
+                        <select
+                          required
+                          value={form.employeeId}
+                          onChange={e => setForm({...form, employeeId: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none bg-indigo-50/30"
+                        >
+                          <option value="">請選擇員工...</option>
+                          {employees.map(emp => (
+                            <option key={emp.id} value={emp.id}>{emp.name} ({emp.code})</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">日期</label>
                       <input
