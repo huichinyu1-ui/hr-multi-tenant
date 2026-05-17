@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, NavLink as RouterNavLink } from 'react-router-dom';
 import { Users, FileSpreadsheet, Calculator, Settings as SettingsIcon, Menu, Clock, X, LogOut, Key, Shield, ShieldCheck, Wallet, ChevronDown, ChevronRight } from 'lucide-react';
 
 import Employees from './pages/Employees';
@@ -38,6 +38,18 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showPwdModal, setShowPwdModal] = useState(false);
   const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '' });
+  const [isGlobalLoading, setIsGlobalLoading] = useState(false);
+
+  React.useEffect(() => {
+    const handleStart = () => setIsGlobalLoading(true);
+    const handleEnd = () => setIsGlobalLoading(false);
+    window.addEventListener('api-load-start', handleStart);
+    window.addEventListener('api-load-end', handleEnd);
+    return () => {
+      window.removeEventListener('api-load-start', handleStart);
+      window.removeEventListener('api-load-end', handleEnd);
+    };
+  }, []);
 
   const roleNames = {
     'ADMIN': '管理員',
@@ -116,14 +128,28 @@ function App() {
   }
 
   const NavLink = ({ to, icon: Icon, children }) => (
-    <Link 
+    <RouterNavLink 
       to={to} 
       onClick={() => setIsMenuOpen(false)}
-      className="text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 flex items-center px-4 py-2.5 rounded-xl text-sm font-bold transition-all group"
+      className={({ isActive }) => 
+        `flex items-center px-4 py-2.5 rounded-xl text-sm font-bold transition-all group ${
+          isActive ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'
+        }`
+      }
     >
-      <Icon className="w-4.5 h-4.5 mr-3 group-hover:scale-110 transition-transform text-gray-400 group-hover:text-indigo-600" />
-      {children}
-    </Link>
+      {({ isActive }) => (
+        <>
+          {isActive && isGlobalLoading ? (
+            <span className="w-4 h-4 mr-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin shrink-0"></span>
+          ) : (
+            <Icon className={`w-4.5 h-4.5 mr-3 shrink-0 transition-transform ${
+              isActive ? 'text-indigo-600 scale-110' : 'text-gray-400 group-hover:text-indigo-600 group-hover:scale-110'
+            }`} />
+          )}
+          {children}
+        </>
+      )}
+    </RouterNavLink>
   );
 
   const NavSection = ({ title, children }) => {
@@ -170,20 +196,32 @@ function App() {
       {/* 薪資結算 - 置底凸顯區 */}
       {canViewPayroll && (
         <div className="pt-6 mt-4 border-t border-gray-100">
-          <Link 
+          <RouterNavLink 
             to="/payroll" 
             onClick={() => setIsMenuOpen(false)}
-            className="flex items-center px-4 py-4 rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-200 hover:bg-indigo-600 hover:-translate-y-0.5 transition-all duration-300 group"
+            className={({ isActive }) => 
+              `flex items-center px-4 py-4 rounded-2xl text-white shadow-xl hover:-translate-y-0.5 transition-all duration-300 group ${
+                isActive ? 'bg-indigo-600 shadow-indigo-200' : 'bg-slate-900 shadow-slate-200 hover:bg-indigo-600'
+              }`
+            }
           >
-            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center mr-3 group-hover:bg-white/20 transition-colors">
-              <Wallet className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-black text-white leading-none mb-1 uppercase tracking-widest">Final Step</p>
-              <p className="text-sm font-black">每月薪資結算系統</p>
-            </div>
-            <ChevronDown className="w-4 h-4 text-white/40 -rotate-90" />
-          </Link>
+            {({ isActive }) => (
+              <>
+                <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center mr-3 shrink-0 group-hover:bg-white/20 transition-colors">
+                  {isActive && isGlobalLoading ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    <Wallet className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-black text-white leading-none mb-1 uppercase tracking-widest">Final Step</p>
+                  <p className="text-sm font-black">每月薪資結算系統</p>
+                </div>
+                <ChevronDown className="w-4 h-4 text-white/40 -rotate-90 shrink-0" />
+              </>
+            )}
+          </RouterNavLink>
         </div>
       )}
     </nav>
