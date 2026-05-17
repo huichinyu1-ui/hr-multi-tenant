@@ -52,28 +52,41 @@ exports.exportCompany = async (req, res) => {
   try {
     const { getCompanyClient } = require('../db_manager');
     const db = await getCompanyClient(code);
-    const data = {
-       employees: await db.employee.findMany(),
-       workShifts: await db.workShift.findMany(),
-       leaveTypes: await db.leaveType.findMany(),
-       leaveQuotas: await db.leaveQuota.findMany(),
-       dailyRecords: await db.dailyRecord.findMany(),
-       payrollRecords: await db.payrollRecord.findMany(),
-       leaveRequests: await db.leaveRequest.findMany(),
-       missedPunchRequests: await db.missedPunchRequest.findMany(),
-       notifications: await db.notification.findMany(),
-       salaryFormulas: await db.salaryFormula.findMany(),
-       systemMetadata: await db.systemMetadata.findMany(),
-       overtimeRequests: await db.overtimeRequest.findMany()
+
+    // 安全讀取函數：若資料表不存在或查詢失敗，回傳空陣列而非中斷整個備份
+    const safeQuery = async (label, queryFn) => {
+      try {
+        return await queryFn();
+      } catch (err) {
+        console.warn(`[Export Warning] 資料表 "${label}" 讀取失敗，已略過: ${err.message}`);
+        return [];
+      }
     };
+
+    const data = {
+      employees:            await safeQuery('employee',             () => db.employee.findMany()),
+      workShifts:           await safeQuery('workShift',            () => db.workShift.findMany()),
+      leaveTypes:           await safeQuery('leaveType',            () => db.leaveType.findMany()),
+      leaveQuotas:          await safeQuery('leaveQuota',           () => db.leaveQuota.findMany()),
+      dailyRecords:         await safeQuery('dailyRecord',          () => db.dailyRecord.findMany()),
+      payrollRecords:       await safeQuery('payrollRecord',        () => db.payrollRecord.findMany()),
+      leaveRequests:        await safeQuery('leaveRequest',         () => db.leaveRequest.findMany()),
+      missedPunchRequests:  await safeQuery('missedPunchRequest',   () => db.missedPunchRequest.findMany()),
+      notifications:        await safeQuery('notification',         () => db.notification.findMany()),
+      salaryFormulas:       await safeQuery('salaryFormula',        () => db.salaryFormula.findMany()),
+      systemMetadata:       await safeQuery('systemMetadata',       () => db.systemMetadata.findMany()),
+      overtimeRequests:     await safeQuery('overtimeRequest',      () => db.overtimeRequest.findMany()),
+    };
+
     res.setHeader('Content-disposition', `attachment; filename=backup_${code}.json`);
     res.setHeader('Content-type', 'application/json');
     res.send(JSON.stringify(data, null, 2));
   } catch (err) {
     console.error('Export Error:', err);
-    res.status(500).json({ error: '備份失敗' });
+    res.status(500).json({ error: '備份失敗: ' + err.message });
   }
 };
+
 
 exports.importCompany = async (req, res) => {
   // Since we migrated to Turso Cloud, direct SQLite upload is disabled for safety.
