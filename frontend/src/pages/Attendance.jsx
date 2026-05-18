@@ -198,6 +198,7 @@ export default function Attendance() {
       case 'EARLY': return <span className="text-amber-600 font-bold">🏃 早退</span>;
       case 'ABSENT': return <span className="text-red-600 font-bold">🚫 曠職</span>;
       case 'LEAVE': return <span className="text-blue-600 font-bold">⛱️ 請假({leaveCode || 'OK'})</span>;
+      case 'EXEMPT': return <span className="text-gray-400 font-bold">➖ 免考勤</span>;
       default: return <span className="text-gray-500">{status}</span>;
     }
   };

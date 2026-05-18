@@ -138,6 +138,24 @@ class AttendanceMatcher {
 
         const hasClock = effectiveClockIn || effectiveClockOut;
 
+        // 【免考勤邏輯】如果未指派班別，或是被指派為免考勤班別，直接將考勤狀態標記為免考勤，並跳過後續遲到早退判定
+        if (!shift || shift.code === 'EXEMPT') {
+          const newData = {
+            status: 'EXEMPT',
+            leave_code: null,
+            late_mins: 0,
+            early_leave_mins: 0,
+            work_mins: 0,
+            overtime1_mins: 0,
+            overtime2_mins: 0,
+            holiday_overtime_mins: 0,
+            clock_in: effectiveClockIn,
+            clock_out: effectiveClockOut
+          };
+          pushIfChanged(existingRecord, emp.id, dateStr, newData);
+          continue;
+        }
+
         if (cDay.is_workday) {
           if (!hasClock) {
             if (leave) {
