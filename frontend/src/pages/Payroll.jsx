@@ -14,6 +14,21 @@ export default function Payroll() {
   const currentMonthEnd = formatLocal(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   const [dateRange, setDateRange] = useState({ start: currentMonthStart, end: currentMonthEnd });
   
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  });
+
+  const handleMonthChange = (ym) => {
+    if (!ym) return;
+    setSelectedMonth(ym);
+    const [year, month] = ym.split('-').map(Number);
+    const start = `${ym}-01`;
+    const end = `${ym}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+    setDateRange({ start, end });
+  };
+  
   const [payrolls, setPayrolls] = useState([]);
   const [stats, setStats] = useState({ totalNet: 0, totalEmployees: 0, calculatedCount: 0 });
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -264,11 +279,15 @@ export default function Payroll() {
                   <h1 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
                     <span className="text-indigo-600">▌</span> {isSelf ? '個人薪資查詢' : '薪資結算看板'}
                   </h1>
-                  <DateRangePicker 
-                    startDate={dateRange.start} 
-                    endDate={dateRange.end} 
-                    onDateChange={(start, end) => setDateRange({ start, end })} 
-                  />
+                  <div className="flex items-center gap-2 bg-white border border-gray-300 rounded px-3 py-1.5 shadow-sm hover:border-indigo-400 transition-colors shrink-0">
+                    <span className="text-xs font-bold text-gray-500">月份</span>
+                    <input 
+                      type="month" 
+                      value={selectedMonth} 
+                      onChange={(e) => handleMonthChange(e.target.value)} 
+                      className="text-xs font-bold text-indigo-600 outline-none cursor-pointer bg-transparent border-none p-0 focus:ring-0"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -533,6 +552,17 @@ export default function Payroll() {
             <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-100">
               <div className="max-w-4xl mx-auto space-y-4 print:space-y-0 print:m-0">
                 
+                {/* Centered Slip Title */}
+                <h2 className="text-xl md:text-2xl font-black text-center text-gray-800 tracking-wider mb-6 pb-2 border-b-2 border-gray-800">
+                  {(() => {
+                    const ym = selectedRecord.year_month.split('-');
+                    const displayCoName = (sessionStorage.getItem('companyName') || '企業')
+                      .replace(/^[A-Z0-9]+\s*/i, '')
+                      .replace(/\s*\([A-Z0-9]+\)$/i, '');
+                    return `${ym[0]}年${ym[1]}月 ${displayCoName} 薪資明細`;
+                  })()}
+                </h2>
+
                 {/* 1. Header Information Table */}
                 <div className="bg-white border-2 border-gray-800">
                   <table className="w-full border-collapse text-sm">
@@ -583,6 +613,11 @@ export default function Payroll() {
                       {(isEditing ? editDetails : selectedRecord.details)
                         .map((d, index) => ({...d, originalIndex: index}))
                         .filter(d => d.type === 'ADDITION')
+                        .sort((a, b) => {
+                          if (a.item_name === '基本薪資') return -1;
+                          if (b.item_name === '基本薪資') return 1;
+                          return 0;
+                        })
                         .map((d) => (
                           <tr key={d.originalIndex} className="border-b border-gray-300">
                             <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
@@ -740,6 +775,18 @@ export default function Payroll() {
     <div className="hidden batch-print-container bg-white text-black p-0 m-0">
       {payrolls.filter(p => selectedIds.includes(p.id)).map((p, idx) => (
         <div key={p.id} className="payroll-slip-print-page p-8 max-w-4xl mx-auto space-y-6 page-break">
+          
+          {/* Centered Slip Title */}
+          <h2 className="text-xl md:text-2xl font-black text-center text-gray-800 tracking-wider mb-6 pb-2 border-b-2 border-gray-800">
+            {(() => {
+              const ym = p.year_month.split('-');
+              const displayCoName = (sessionStorage.getItem('companyName') || '企業')
+                .replace(/^[A-Z0-9]+\s*/i, '')
+                .replace(/\s*\([A-Z0-9]+\)$/i, '');
+              return `${ym[0]}年${ym[1]}月 ${displayCoName} 薪資明細`;
+            })()}
+          </h2>
+
           {/* 1. Header Information Table */}
           <div className="bg-white border-2 border-gray-800">
             <table className="w-full border-collapse text-sm">
@@ -789,6 +836,11 @@ export default function Payroll() {
               <tbody>
                 {(p.details || [])
                   .filter(d => d.type === 'ADDITION')
+                  .sort((a, b) => {
+                    if (a.item_name === '基本薪資') return -1;
+                    if (b.item_name === '基本薪資') return 1;
+                    return 0;
+                  })
                   .map((d, index) => (
                     <tr key={index} className="border-b border-gray-300">
                       <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
