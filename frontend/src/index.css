@@ -98,13 +98,13 @@ body {
     font-size: 9pt !important;
     zoom: 0.9; /* 整體縮放 90% */
   }
-  .flex-col {
-    height: auto !important;
-    overflow: visible !important;
-  }
-  .overflow-auto {
+  /* 強制所有上層容器在列印時可以完整延展與可見，徹底避免被 overflow、flex 或定高容器截斷 */
+  html, body, #root, .min-h-screen, .flex-col, .flex, main, section, div,
+  .overflow-y-auto, .overflow-x-auto, .overflow-auto, .flex-1 {
     overflow: visible !important;
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
   }
   .max-w-4xl {
     max-width: 100% !important;
