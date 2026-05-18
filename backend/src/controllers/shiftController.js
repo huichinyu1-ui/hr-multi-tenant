@@ -17,7 +17,7 @@ exports.createShift = async (req, res) => {
     const {
       code, name, work_start, work_end,
       rest_start, rest_end,
-      overtime_start,
+      overtime_start, overtime_end,
       late_buffer_mins, punch_in_window_mins, overtime_min_unit
     } = req.body;
 
@@ -27,6 +27,7 @@ exports.createShift = async (req, res) => {
         rest_start: rest_start || null,
         rest_end: rest_end || null,
         overtime_start: overtime_start || null,
+        overtime_end: overtime_end || null,
         late_buffer_mins: parseInt(late_buffer_mins) || 0,
         punch_in_window_mins: parseInt(punch_in_window_mins) || 240,
         overtime_min_unit: parseInt(overtime_min_unit) || 30,
@@ -44,7 +45,7 @@ exports.updateShift = async (req, res) => {
     const {
       name, work_start, work_end,
       rest_start, rest_end,
-      overtime_start,
+      overtime_start, overtime_end,
       late_buffer_mins, punch_in_window_mins, overtime_min_unit
     } = req.body;
 
@@ -55,6 +56,7 @@ exports.updateShift = async (req, res) => {
         rest_start: rest_start || null,
         rest_end: rest_end || null,
         overtime_start: overtime_start || null,
+        overtime_end: overtime_end || null,
         late_buffer_mins: parseInt(late_buffer_mins) || 0,
         punch_in_window_mins: parseInt(punch_in_window_mins) || 240,
         overtime_min_unit: parseInt(overtime_min_unit) || 30,
