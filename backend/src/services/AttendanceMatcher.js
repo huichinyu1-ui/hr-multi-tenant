@@ -236,6 +236,9 @@ class AttendanceMatcher {
       late_mins: 0,
       early_leave_mins: 0,
       work_mins: 0,
+      overtime1_mins: 0,
+      overtime2_mins: 0,
+      holiday_overtime_mins: 0,
       clock_in_status: null,
       clock_out_status: null
     };
