@@ -16,12 +16,14 @@ class FormulaEngine {
       base_salary: Number(empData.base_salary) || 0,
     };
 
-    // 動態加入員工資料中的所有數值欄位
+    // 動態加入員工資料中的所有數值欄位（包含 original_ 前綴的合約原始欄位，以防後續被薪資項目計算覆寫）
     Object.keys(empData).forEach(key => {
       const val = empData[key];
       // 排除非數值欄位
       if (typeof val === 'number' || (typeof val === 'string' && !isNaN(val) && val !== '' && val !== null)) {
-        pool[key] = Number(val);
+        const numVal = Number(val);
+        pool[key] = numVal;
+        pool[`original_${key}`] = numVal; // 原始合約設定值
       }
     });
 

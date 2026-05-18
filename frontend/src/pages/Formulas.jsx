@@ -124,6 +124,16 @@ export default function Formulas() {
       ]
     },
     {
+      title: '合約原始固定值 (防出勤變動影響)',
+      vars: [
+        { label: '原始基本薪資 {original_base_salary}', value: '{original_base_salary}' },
+        { label: '原始全勤獎金 {original_full_attendance_bonus}', value: '{original_full_attendance_bonus}' },
+        { label: '原始伙食津貼 {original_meal_allowance}', value: '{original_meal_allowance}' },
+        { label: '原始生產獎金 {original_production_bonus}', value: '{original_production_bonus}' },
+        { label: '原始績效獎金 {original_performance_bonus}', value: '{original_performance_bonus}' }
+      ]
+    },
+    {
       title: '考勤出缺勤',
       vars: [
         { label: '應出勤時數', value: '{work_hours_count}' },
