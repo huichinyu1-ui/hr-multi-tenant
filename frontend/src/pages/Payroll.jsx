@@ -593,7 +593,7 @@ export default function Payroll() {
                 <h2 className="text-xl md:text-2xl font-black text-center text-gray-800 tracking-wider mb-6 pb-2 border-b-2 border-gray-800">
                   {(() => {
                     const ym = selectedRecord.year_month.split('-');
-                    const displayCoName = (sessionStorage.getItem('companyName') || '企業')
+                    const displayCoName = (sessionStorage.getItem('companyName') || localStorage.getItem('companyName') || sessionStorage.getItem('companyCode') || '企業')
                       .replace(/^[A-Z0-9]+\s*/i, '')
                       .replace(/\s*\([A-Z0-9]+\)$/i, '');
                     return `${ym[0]}年${ym[1]}月 ${displayCoName} 薪資明細`;
@@ -817,7 +817,7 @@ export default function Payroll() {
           <h2 className="text-xl md:text-2xl font-black text-center text-gray-800 tracking-wider mb-6 pb-2 border-b-2 border-gray-800">
             {(() => {
               const ym = p.year_month.split('-');
-              const displayCoName = (sessionStorage.getItem('companyName') || '企業')
+              const displayCoName = (sessionStorage.getItem('companyName') || localStorage.getItem('companyName') || sessionStorage.getItem('companyCode') || '企業')
                 .replace(/^[A-Z0-9]+\s*/i, '')
                 .replace(/\s*\([A-Z0-9]+\)$/i, '');
               return `${ym[0]}年${ym[1]}月 ${displayCoName} 薪資明細`;

@@ -126,6 +126,12 @@ export default function SuperAdmin() {
       sessionStorage.setItem('companyCode', code);
       sessionStorage.setItem('permissions', JSON.stringify(permissions));
       
+      const co = companies.find(c => c.code === code);
+      if (co) {
+        sessionStorage.setItem('companyName', co.name);
+        localStorage.setItem('companyName', co.name);
+      }
+      
       window.location.href = '/'; 
     } catch (e) {
       alert('無法進入該企業：' + (e.response?.data?.error || e.message));
