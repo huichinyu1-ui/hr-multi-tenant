@@ -26,6 +26,7 @@ async function validateFormula(db, formula_expr, res, currentCode) {
 
   const invalidVars = vars.filter(v =>
     !validCodes.has(v) &&
+    !v.startsWith('original_') && // 允許合約原始值前綴
     !v.endsWith('_days') &&
     !v.endsWith('_hours') &&
     !v.endsWith('_mins') &&
