@@ -355,7 +355,8 @@ class AttendanceMatcher {
         include: { leaveType: true }
       }),
       prisma.employee.findMany({
-        where: { id: { in: employeeIds } }
+        where: { id: { in: employeeIds } },
+        include: { workShift: true }
       })
     ]);
 
