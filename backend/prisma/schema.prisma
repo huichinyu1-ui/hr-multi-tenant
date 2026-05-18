@@ -93,7 +93,6 @@ model WorkShift {
   rest_start        String?    
   rest_end          String?    
   overtime_start    String?    
-  overtime_end      String?    
   late_buffer_mins  Int        @default(0)
   punch_in_window_mins Int       @default(240)
   overtime_min_unit Int        @default(30)
