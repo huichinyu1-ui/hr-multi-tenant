@@ -178,6 +178,10 @@ export default function Attendance() {
   };
 
   const handleStatusChange = async (id, newStatus) => {
+    if (!window.confirm('確定要修改此員工的出勤狀態嗎？')) {
+      fetchRecords();
+      return;
+    }
     try {
       await api.put(`/attendances/${id}`, { status: newStatus });
       fetchRecords();
@@ -185,10 +189,18 @@ export default function Attendance() {
   };
 
   const handleTimeChange = async (id, field, value) => {
+    const fieldLabel = field === 'clock_in' ? '上班時間' : '下班時間';
+    if (!window.confirm(`確定要將此員工的${fieldLabel}修改為 ${value || '空值'} 嗎？`)) {
+      fetchRecords(); // 重新載入以還原 UI 輸入框的值
+      return;
+    }
     try {
       await api.put(`/attendances/${id}`, { [field]: value || null });
       fetchRecords();
-    } catch (e) { alert('更新時間失敗'); }
+    } catch (e) { 
+      alert('更新時間失敗'); 
+      fetchRecords();
+    }
   };
 
   const getStatusBadge = (status, leaveCode) => {

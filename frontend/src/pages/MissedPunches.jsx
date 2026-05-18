@@ -3,6 +3,7 @@ import { Clock, CheckCircle, XCircle, Send, Trash2, ChevronDown, ChevronUp, Plus
 import { useToast } from '../contexts/ToastContext';
 import { usePermission } from '../contexts/PermissionContext';
 import api from '../utils/api';
+import DateRangePicker from '../components/DateRangePicker';
 
 export default function MissedPunches() {
   const { addToast } = useToast();
@@ -36,16 +37,24 @@ export default function MissedPunches() {
   const [selectedEmpIds, setSelectedEmpIds] = useState([]);
   const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
 
+  // 日期區間篩選狀態 (對齊請假與加班審核)
+  const today = new Date();
+  const formatLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const currentMonthStart = formatLocal(new Date(today.getFullYear(), today.getMonth(), 1));
+  const currentMonthEnd = formatLocal(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+  const [dateRange, setDateRange] = useState({ start: currentMonthStart, end: currentMonthEnd });
+
   useEffect(() => {
     fetchRequests();
     if (!isMissedSelfOnly) fetchEmployees();
-  }, []);
+  }, [dateRange]);
 
   const fetchRequests = async () => {
     try {
+      const baseParams = `start_date=${dateRange.start}&end_date=${dateRange.end}`;
       const url = isMissedSelfOnly
-        ? `/missed-punches?employeeId=${user.id}`
-        : `/missed-punches`;
+        ? `/missed-punches?employeeId=${user.id}&${baseParams}`
+        : `/missed-punches?${baseParams}`;
       const res = await api.get(url);
       setRequests(res.data);
     } catch (e) { console.error(e); }
@@ -118,10 +127,17 @@ export default function MissedPunches() {
     <div className="flex flex-col min-h-[calc(100vh-80px)] bg-white -m-6 lg:-m-10">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 sticky top-0 z-10">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-base md:text-xl font-black text-gray-800 tracking-tight flex items-center gap-2 shrink-0">
-            <span className="text-indigo-600">◌</span> 補打卡申請
-          </h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-4 shrink-0">
+            <h1 className="text-base md:text-xl font-black text-gray-800 tracking-tight flex items-center gap-2 shrink-0">
+              <span className="text-indigo-600">◌</span> 補打卡申請
+            </h1>
+            <DateRangePicker 
+              startDate={dateRange.start} 
+              endDate={dateRange.end} 
+              onDateChange={(start, end) => setDateRange({ start, end })} 
+            />
+          </div>
 
           {/* 手機版可左右滑動的筜選工具列 */}
           {!isMissedSelfOnly && (

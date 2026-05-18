@@ -21,7 +21,7 @@ exports.createRequest = async (req, res) => {
 };
 
 exports.getRequests = async (req, res) => {
-  const { employeeId, status } = req.query;
+  const { employeeId, status, start_date, end_date } = req.query;
   try {
     if (!req.db) return res.status(500).json({ error: 'DB 連線未初始化，請確認 x-company-code 標頭是否正確傳送' });
     const where = {};
@@ -36,6 +36,8 @@ exports.getRequests = async (req, res) => {
     const conditions = [];
     if (employeeId) { conditions.push(`mp.employeeId = ?`); params.push(parseInt(employeeId)); }
     if (status) { conditions.push(`mp.status = ?`); params.push(status); }
+    if (start_date) { conditions.push(`mp.date >= ?`); params.push(start_date); }
+    if (end_date) { conditions.push(`mp.date <= ?`); params.push(end_date); }
     if (conditions.length) sql += ` WHERE ${conditions.join(' AND ')}`;
     sql += ` ORDER BY mp.created_at DESC`;
 
