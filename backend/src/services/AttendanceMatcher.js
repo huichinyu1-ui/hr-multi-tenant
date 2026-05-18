@@ -166,7 +166,7 @@ class AttendanceMatcher {
               pushIfChanged(existingRecord, emp.id, dateStr, newData);
             }
           } else {
-            const parsed = AttendanceMatcher.parseAttendance({ clock_in: effectiveClockIn, clock_out: effectiveClockOut }, shift);
+            const parsed = AttendanceMatcher.parseAttendance({ clock_in: effectiveClockIn, clock_out: effectiveClockOut }, shift, otReq);
             let finalStatus = 'PRESENT';
             if (parsed.clock_in_status === 'ABSENT') finalStatus = 'ABSENT';
             else if (parsed.late_mins > 0) finalStatus = 'LATE';
@@ -231,7 +231,7 @@ class AttendanceMatcher {
   /**
    * 根據班別規則解析單日打卡紀錄
    */
-  static parseAttendance(record, shift) {
+  static parseAttendance(record, shift, otReq = null) {
     const result = {
       late_mins: 0,
       early_leave_mins: 0,
@@ -298,10 +298,28 @@ class AttendanceMatcher {
       if (clockOutMins > overtimeStartMins) {
         const totalOtMins = clockOutMins - overtimeStartMins;
         const otUnit = shift.overtime_min_unit || 30;
-        const phase1Raw = Math.min(totalOtMins, 120);
+
+        // 【overtime_end 防護】如果有設定標準加班結束時間，進行智慧上限判定
+        const overtimeEndMins = shift.overtime_end ? timeToMins(shift.overtime_end) : null;
+        let effectiveOtMins = totalOtMins;
+
+        if (overtimeEndMins !== null && clockOutMins > overtimeEndMins) {
+          if (otReq) {
+            // 有核准加班單：取「標準結束」與「加班單結束」最大値作為上限
+            const reqEndMins = timeToMins(otReq.end_time);
+            const allowedEndMins = Math.max(overtimeEndMins, reqEndMins);
+            const cappedClockOut = Math.min(clockOutMins, allowedEndMins);
+            effectiveOtMins = Math.max(0, cappedClockOut - overtimeStartMins);
+          } else {
+            // 沒有加班單：一律截斷於標準加班結束時間
+            effectiveOtMins = Math.max(0, overtimeEndMins - overtimeStartMins);
+          }
+        }
+
+        const phase1Raw = Math.min(effectiveOtMins, 120);
         result.overtime1_mins = floorToUnit(phase1Raw, otUnit);
-        if (totalOtMins > 120) {
-          result.overtime2_mins = floorToUnit(totalOtMins - 120, otUnit);
+        if (effectiveOtMins > 120) {
+          result.overtime2_mins = floorToUnit(effectiveOtMins - 120, otUnit);
         }
       }
     }

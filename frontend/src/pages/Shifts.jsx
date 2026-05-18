@@ -7,7 +7,7 @@ export default function Shifts() {
   const [formData, setFormData] = useState({
     code: '', name: '', work_start: '09:00', work_end: '18:00',
     rest_start: '12:00', rest_end: '13:00',
-    overtime_start: '18:30',
+    overtime_start: '18:30', overtime_end: '',
     late_buffer_mins: 0, punch_in_window_mins: 240, overtime_min_unit: 30
   });
   const { hasPermission } = usePermission();
@@ -39,7 +39,7 @@ export default function Shifts() {
       setFormData({
         code: '', name: '', work_start: '09:00', work_end: '18:00',
         rest_start: '12:00', rest_end: '13:00',
-        overtime_start: '18:30', late_buffer_mins: 0, punch_in_window_mins: 240, overtime_min_unit: 30
+        overtime_start: '18:30', overtime_end: '', late_buffer_mins: 0, punch_in_window_mins: 240, overtime_min_unit: 30
       });
       setEditingId(null);
       fetchShifts();
@@ -57,6 +57,7 @@ export default function Shifts() {
       rest_start: shift.rest_start || '',
       rest_end: shift.rest_end || '',
       overtime_start: shift.overtime_start || '',
+      overtime_end: shift.overtime_end || '',
       late_buffer_mins: shift.late_buffer_mins,
       punch_in_window_mins: shift.punch_in_window_mins,
       overtime_min_unit: shift.overtime_min_unit
@@ -112,6 +113,11 @@ export default function Shifts() {
             <input type="time" value={formData.overtime_start} onChange={e => setFormData({ ...formData, overtime_start: e.target.value })} className="mt-1 w-full p-2 border rounded" />
             <div className="text-xs text-gray-500 mt-1">留空則依下班時間</div>
           </div>
+          <div>
+            <label className="block text-sm text-gray-700">加班結束上限 (選填)</label>
+            <input type="time" value={formData.overtime_end} onChange={e => setFormData({ ...formData, overtime_end: e.target.value })} className="mt-1 w-full p-2 border rounded" />
+            <div className="text-xs text-gray-500 mt-1">超過需搭配加班單</div>
+          </div>
           
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">遲到緩衝 (分鐘)</label>
@@ -133,7 +139,7 @@ export default function Shifts() {
             {editingId ? '儲存變更' : '新增班別'}
           </button>
           {editingId && (
-            <button type="button" onClick={() => { setEditingId(null); setFormData({ code: '', name: '', work_start: '08:30', work_end: '17:30', rest_start: '12:00', rest_end: '13:00', overtime_start: '18:00', late_buffer_mins: 5, overtime_min_unit: 30 }); }} className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500">
+            <button type="button" onClick={() => { setEditingId(null); setFormData({ code: '', name: '', work_start: '08:30', work_end: '17:30', rest_start: '12:00', rest_end: '13:00', overtime_start: '18:00', overtime_end: '', late_buffer_mins: 5, overtime_min_unit: 30 }); }} className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500">
               取消編輯
             </button>
           )}
@@ -147,7 +153,7 @@ export default function Shifts() {
             <th className="p-3">代碼 / 名稱</th>
             <th className="p-3">時段</th>
             <th className="p-3">休息時段</th>
-            <th className="p-3">加班起算</th>
+            <th className="p-3">標準加班時段</th>
             <th className="p-3">規則設定</th>
             <th className="p-3">人數</th>
             <th className="p-3">操作</th>
@@ -162,7 +168,9 @@ export default function Shifts() {
               </td>
               <td className="p-3">{s.work_start} - {s.work_end}</td>
               <td className="p-3">{s.rest_start ? `${s.rest_start} - ${s.rest_end}` : '無'}</td>
-              <td className="p-3">{s.overtime_start || '下班即算'}</td>
+              <td className="p-3 text-indigo-700 font-bold">
+                {s.overtime_start || '下班'} ~ {s.overtime_end || '無上限'}
+              </td>
               <td className="p-3 text-sm">
                 <div>遲到緩衝: {s.late_buffer_mins}分</div>
                 <div>提前打卡: {s.punch_in_window_mins || 240}分</div>
