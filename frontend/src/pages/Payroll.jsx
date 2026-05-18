@@ -245,6 +245,43 @@ export default function Payroll() {
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           .page-break { page-break-after: always !important; page-break-inside: avoid !important; }
+          
+          /* 強化列印時的表格邊線與外框 */
+          .border-2, .border-x-2, .border-y-2,
+          .border-gray-800, .border-gray-400 {
+            border: 2px solid #000000 !important;
+          }
+          
+          table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+          }
+          
+          th, td {
+            border: 1px solid #000000 !important;
+            border-collapse: collapse !important;
+          }
+          
+          /* 加粗內部間隔線 */
+          .border-r-2 {
+            border-right: 2px solid #000000 !important;
+          }
+          .border-b-2 {
+            border-bottom: 2px solid #000000 !important;
+          }
+          .border-t-2 {
+            border-top: 2px solid #000000 !important;
+          }
+          .border-gray-300 {
+            border-color: #000000 !important;
+          }
+          
+          /* 強制列印背景顏色（如灰色表頭與合計列） */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
           ${activeTab === 'list' ? `
             .main-app-container { display: none !important; }
             .batch-print-container { display: block !important; }
