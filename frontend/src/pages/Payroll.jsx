@@ -244,7 +244,31 @@ export default function Payroll() {
     <>
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          .page-break { page-break-after: always !important; page-break-inside: avoid !important; }
+          .page-break { page-break-after: always !important; break-after: page !important; }
+          
+          /* 緊湊列印排版以防溢出單頁，解決列印到後面頁面印到一半被切掉的 Bug */
+          .payroll-slip-print-page {
+            padding: 12px 20px !important;
+            margin: 0 auto !important;
+            max-width: 100% !important;
+          }
+          .payroll-slip-print-page > * + * {
+            margin-top: 8px !important;
+          }
+          
+          /* 縮小字體與單元格內距，提升列印緊湊度 */
+          .payroll-slip-print-page th,
+          .payroll-slip-print-page td {
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+          }
+          
+          /* 調整標題間距 */
+          .payroll-slip-print-page h2 {
+            margin-bottom: 8px !important;
+            padding-bottom: 4px !important;
+            font-size: 18px !important;
+          }
           
           /* 強化列印時的表格邊線與外框 */
           .border-2, .border-x-2, .border-y-2,
