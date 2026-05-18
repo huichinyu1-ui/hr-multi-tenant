@@ -20,6 +20,7 @@ export default function Payroll() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editDetails, setEditDetails] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const { hasPermission, isAdmin, isSelfOnly } = usePermission();
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
@@ -74,7 +75,9 @@ export default function Payroll() {
       ]);
       setPayrolls(res.data);
       setEmployees(empRes.data);
-      const totalNet = results.reduce((sum, p) => sum + p.net_salary, 0);
+      setSelectedIds([]); // Reset selection when data is re-fetched
+      const totalNet = res.data.reduce((sum, p) => sum + p.net_salary, 0);
+      const calculated = res.data.filter(p => p.status === 'FINALIZED').length;
       setStats({
         totalNet,
         totalEmployees: empRes.data.length,
@@ -206,64 +209,95 @@ export default function Payroll() {
     return matchesEmp && matchesNameSearch;
   });
 
+  const handleSelectAll = (e) => {
+    if (e.target.checked) setSelectedIds(filteredPayrolls.map(p => p.id));
+    else setSelectedIds([]);
+  };
+
+  const handleSelectOne = (id) => {
+    if (selectedIds.includes(id)) setSelectedIds(selectedIds.filter(i => i !== id));
+    else setSelectedIds([...selectedIds, id]);
+  };
+
+  const handleBatchPrint = () => {
+    window.print();
+  };
+
   const isAllFinalized = payrolls.length > 0 && payrolls.every(p => p.status === 'FINALIZED');
 
   return (
-    <div className="flex flex-col h-[calc(100vh-160px)] bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm animate-in fade-in duration-500">
-      {/* Tab Navigation */}
-      <div className="flex bg-gray-50 border-b border-gray-200 shrink-0 print:hidden">
-        <button 
-          onClick={() => setActiveTab('list')}
-          className={`px-8 py-3 text-sm font-black transition-all border-r border-gray-200 ${activeTab === 'list' ? 'bg-white text-indigo-600 border-b-2 border-b-indigo-600' : 'text-gray-400 hover:bg-gray-100'}`}
-        >
-          薪資結算清單
-        </button>
-        <button 
-          onClick={() => setActiveTab('details')}
-          className={`px-8 py-3 text-sm font-black transition-all border-r border-gray-200 ${activeTab === 'details' ? 'bg-white text-indigo-600 border-b-2 border-b-indigo-600' : 'text-gray-400 hover:bg-gray-100'}`}
-        >
-          {selectedRecord ? `薪資明細 (${selectedRecord.employee.name})` : '薪資明細'}
-        </button>
-      </div>
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          .page-break { page-break-after: always !important; page-break-inside: avoid !important; }
+          ${activeTab === 'list' ? `
+            .main-app-container { display: none !important; }
+            .batch-print-container { display: block !important; }
+          ` : `
+            .batch-print-container { display: none !important; }
+          `}
+        }
+      `}} />
+      <div className="flex flex-col h-[calc(100vh-160px)] bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm animate-in fade-in duration-500 main-app-container">
+        {/* Tab Navigation */}
+        <div className="flex bg-gray-50 border-b border-gray-200 shrink-0 print:hidden">
+          <button 
+            onClick={() => setActiveTab('list')}
+            className={`px-8 py-3 text-sm font-black transition-all border-r border-gray-200 ${activeTab === 'list' ? 'bg-white text-indigo-600 border-b-2 border-b-indigo-600' : 'text-gray-400 hover:bg-gray-100'}`}
+          >
+            薪資結算清單
+          </button>
+          <button 
+            onClick={() => setActiveTab('details')}
+            className={`px-8 py-3 text-sm font-black transition-all border-r border-gray-200 ${activeTab === 'details' ? 'bg-white text-indigo-600 border-b-2 border-b-indigo-600' : 'text-gray-400 hover:bg-gray-100'}`}
+          >
+            {selectedRecord ? `薪資明細 (${selectedRecord.employee.name})` : '薪資明細'}
+          </button>
+        </div>
 
-      {activeTab === 'list' ? (
-        <>
-          <div className="bg-white border-b border-gray-200 shrink-0">
-            {/* Top Tier: Title, Date Range, Action Buttons */}
-            <div className="px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
-                  <span className="text-indigo-600">▌</span> {isSelf ? '個人薪資查詢' : '薪資結算看板'}
-                </h1>
-                <DateRangePicker 
-                  startDate={dateRange.start} 
-                  endDate={dateRange.end} 
-                  onDateChange={(start, end) => setDateRange({ start, end })} 
-                />
-              </div>
+        {activeTab === 'list' ? (
+          <>
+            <div className="bg-white border-b border-gray-200 shrink-0">
+              {/* Top Tier: Title, Date Range, Action Buttons */}
+              <div className="px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
+                    <span className="text-indigo-600">▌</span> {isSelf ? '個人薪資查詢' : '薪資結算看板'}
+                  </h1>
+                  <DateRangePicker 
+                    startDate={dateRange.start} 
+                    endDate={dateRange.end} 
+                    onDateChange={(start, end) => setDateRange({ start, end })} 
+                  />
+                </div>
 
-              <div className="flex gap-2">
-                {!isSelf && (
-                  <>
-                    <button onClick={handleCalculate} disabled={loading} className="bg-[#1e40af] hover:bg-blue-800 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50">
-                      <Calculator size={16} /> 自動試算
+                <div className="flex gap-2">
+                  {!isSelf && selectedIds.length > 0 && (
+                    <button onClick={handleBatchPrint} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all animate-in fade-in zoom-in-95 duration-200">
+                      <Printer size={16} /> 批次列印 ({selectedIds.length} 筆)
                     </button>
-                    {!isAllFinalized ? (
-                      <button onClick={handleFinalize} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all">
-                        <CheckCircle size={16} /> 結案鎖定
+                  )}
+                  {!isSelf && (
+                    <>
+                      <button onClick={handleCalculate} disabled={loading} className="bg-[#1e40af] hover:bg-blue-800 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50">
+                        <Calculator size={16} /> 自動試算
                       </button>
-                    ) : (
-                      <button onClick={handleUnfinalize} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all">
-                        <Unlock size={16} /> 取消結案
-                      </button>
-                    )}
-                  </>
-                )}
-                <button onClick={handleExport} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all">
-                  <FileSpreadsheet size={16} className="text-emerald-600" /> 匯出報表
-                </button>
+                      {!isAllFinalized ? (
+                        <button onClick={handleFinalize} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all">
+                          <CheckCircle size={16} /> 結案鎖定
+                        </button>
+                      ) : (
+                        <button onClick={handleUnfinalize} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all">
+                          <Unlock size={16} /> 取消結案
+                        </button>
+                      )}
+                    </>
+                  )}
+                  <button onClick={handleExport} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded text-xs md:text-sm font-bold flex items-center gap-2 shadow-sm transition-all">
+                    <FileSpreadsheet size={16} className="text-emerald-600" /> 匯出報表
+                  </button>
+                </div>
               </div>
-            </div>
 
             {/* Bottom Tier: Filters */}
             <div className="px-6 py-2.5 bg-gray-50 flex items-center gap-4 text-sm border-t border-gray-100">
@@ -382,10 +416,20 @@ export default function Payroll() {
           )}
 
           {/* Table Area */}
-          <div className="flex-1 overflow-auto border-b border-gray-200 custom-scrollbar">
+          <div className="flex-1 overflow-auto border-b border-gray-200 custom-scrollbar print:hidden">
             <table className="min-w-full border-collapse">
               <thead className="bg-[#f0f4f8] sticky top-0 z-10">
                 <tr>
+                  {!isSelf && (
+                    <th className="px-4 py-2 border-r border-b border-gray-300 text-center w-12 print:hidden">
+                      <input 
+                        type="checkbox" 
+                        checked={filteredPayrolls.length > 0 && selectedIds.length === filteredPayrolls.length} 
+                        onChange={handleSelectAll} 
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-0" 
+                      />
+                    </th>
+                  )}
                   <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">月份</th>
                   {visibleColumns.includes('name') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">員工姓名</th>}
                   {visibleColumns.includes('code') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">工號</th>}
@@ -402,6 +446,16 @@ export default function Payroll() {
               <tbody className="bg-white text-xs md:text-sm">
                 {filteredPayrolls.map((p, idx) => (
                   <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors border-b border-gray-100 ${selectedRecord?.id === p.id ? 'bg-blue-50' : ''}`}>
+                    {!isSelf && (
+                      <td className="px-4 py-3 border-r border-gray-200 text-center print:hidden">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(p.id)} 
+                          onChange={() => handleSelectOne(p.id)} 
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-0" 
+                        />
+                      </td>
+                    )}
                     <td className="px-6 py-3 border-r border-gray-200 text-gray-500 font-bold">{p.year_month}</td>
                     {visibleColumns.includes('name') && (
                       <td className="px-6 py-3 border-r border-gray-200 font-bold text-[#1e40af] hover:underline cursor-pointer" onClick={() => { setSelectedRecord(p); setActiveTab('details'); }}>
@@ -442,7 +496,7 @@ export default function Payroll() {
                 ))}
                 {filteredPayrolls.length === 0 && (
                   <tr>
-                    <td colSpan={3 + visibleColumns.length} className="py-20 text-center text-gray-300 font-bold italic tracking-widest">NO PAYROLL DATA</td>
+                    <td colSpan={(isSelf ? 3 : 4) + visibleColumns.length} className="py-20 text-center text-gray-300 font-bold italic tracking-widest">NO PAYROLL DATA</td>
                   </tr>
                 )}
               </tbody>
@@ -450,7 +504,7 @@ export default function Payroll() {
           </div>
 
           {/* Bottom Toolbar (Simple) */}
-          <div className="bg-[#f8f9fa] border-t border-gray-200 p-4 flex items-center gap-6 shrink-0">
+          <div className="bg-[#f8f9fa] border-t border-gray-200 p-4 flex items-center gap-6 shrink-0 print:hidden">
             <span className="text-xs text-gray-400 font-black uppercase tracking-widest">結算統計</span>
             <div className="flex gap-8">
                <div className="text-xs font-bold text-gray-600">預計支出: <span className="text-indigo-600 font-black">${stats.totalNet.toLocaleString()}</span></div>
@@ -681,5 +735,109 @@ export default function Payroll() {
         </div>
       )}
     </div>
-  );
+
+    {/* 批次列印專用 DOM 容器 */}
+    <div className="hidden batch-print-container bg-white text-black p-0 m-0">
+      {payrolls.filter(p => selectedIds.includes(p.id)).map((p, idx) => (
+        <div key={p.id} className="payroll-slip-print-page p-8 max-w-4xl mx-auto space-y-6 page-break">
+          {/* 1. Header Information Table */}
+          <div className="bg-white border-2 border-gray-800">
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                <tr className="border-b-2 border-gray-800">
+                  <td className="w-1/6 px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">職員代碼</td>
+                  <td className="w-2/6 px-3 py-2 border-r-2 border-gray-800 font-bold">{p.employee.code}</td>
+                  <td className="w-1/6 px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">姓名</td>
+                  <td className="w-2/6 px-3 py-2 font-bold">{p.employee.name}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">部門</td>
+                  <td className="px-3 py-2 border-r-2 border-gray-800 font-bold">{p.employee.department || '--'}</td>
+                  <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">支付日期</td>
+                  <td className="px-3 py-2 font-bold">{p.year_month.replace('-', '/')}/05</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 2. Summary Row Table */}
+          <div className="bg-white border-2 border-gray-800">
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                <tr className="font-black">
+                  <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">支付總額</td>
+                  <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-emerald-700">{p.total_addition.toLocaleString()}</td>
+                  <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-rose-700">{p.total_deduction.toLocaleString()}</td>
+                  <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">扣除總額</td>
+                  <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">實支付額</td>
+                  <td className="w-1/6 px-3 py-2 text-right text-indigo-700 text-lg">{p.net_salary.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 3. Additions Table */}
+          <div className="bg-white border-x-2 border-t-2 border-gray-400">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b-2 border-gray-400">
+                  <th className="w-5/12 py-2 border-r-2 border-gray-400 text-center font-black">津貼項目名稱</th>
+                  <th className="w-3/12 py-2 border-r-2 border-gray-400 text-center font-black">金額</th>
+                  <th className="w-4/12 py-2 text-center font-black">備註事項</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(p.details || [])
+                  .filter(d => d.type === 'ADDITION')
+                  .map((d, index) => (
+                    <tr key={index} className="border-b border-gray-300">
+                      <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
+                      <td className="px-3 py-2 border-r-2 border-gray-300 text-right font-black">{d.amount.toLocaleString()}</td>
+                      <td className="px-3 py-2 italic text-gray-500 text-xs">{d.note}</td>
+                    </tr>
+                  ))}
+                {/* Addition Total Row */}
+                <tr className="bg-gray-50 font-black border-b-2 border-gray-400">
+                  <td className="px-3 py-2 border-r-2 border-gray-300 text-center">合計</td>
+                  <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-emerald-700">{p.total_addition.toLocaleString()}</td>
+                  <td className="px-3 py-2"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 4. Deductions Table */}
+          <div className="bg-white border-x-2 border-y-2 border-gray-800">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b-2 border-gray-800">
+                  <th className="w-5/12 py-2 border-r-2 border-gray-800 text-center font-black">扣除項目名稱</th>
+                  <th className="w-3/12 py-2 border-r-2 border-gray-800 text-center font-black">金額</th>
+                  <th className="w-4/12 py-2 text-center font-black">備註事項</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(p.details || [])
+                  .filter(d => d.type === 'DEDUCTION')
+                  .map((d, index) => (
+                    <tr key={index} className="border-b border-gray-300">
+                      <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
+                      <td className="px-3 py-2 border-r-2 border-gray-300 text-right font-black">{d.amount.toLocaleString()}</td>
+                      <td className="px-3 py-2 italic text-gray-500 text-xs">{d.note}</td>
+                    </tr>
+                  ))}
+                {/* Deduction Total Row */}
+                <tr className="bg-gray-50 font-black">
+                  <td className="px-3 py-2 border-r-2 border-gray-300 text-center">合計</td>
+                  <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-rose-700">{p.total_deduction.toLocaleString()}</td>
+                  <td className="px-3 py-2"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  </>
+);
 }
