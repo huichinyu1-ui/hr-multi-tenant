@@ -619,14 +619,22 @@ exports.autoCalculateQuotas = async (req, res) => {
               if (currentDate.getDate() < joinDate.getDate()) diffMonths -= 1;
               
               let grantedDays = 0;
+              let currentRuleMonths = 0;
               for (const rule of rules) {
                 if (diffMonths >= rule.months) {
                   grantedDays = rule.days;
+                  currentRuleMonths = rule.months;
                   break;
                 }
               }
               
-              totalAnnualHours += (grantedDays * 8) / daysInYear;
+              // 勞基法中「滿半年(6個月)」的3天特休，有效期限僅有半年。
+              // 如果直接除以 365 進行日折算，員工會損失一半的假，因此必須除以半年天數。
+              if (currentRuleMonths === 6) {
+                totalAnnualHours += (grantedDays * 8) / (daysInYear / 2);
+              } else {
+                totalAnnualHours += (grantedDays * 8) / daysInYear;
+              }
             }
             
             // 依據使用者需求：計算直接無條件進位
