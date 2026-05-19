@@ -1,0 +1,351 @@
+commit ffa728a8a55608689503d4763ad3d06bfe4e8d23
+Author: huichinyu1-ui <huichinyu1@gmail.com>
+Date:   Tue May 12 14:18:31 2026 +0800
+
+     feat: unified attendance leaves and payroll date range filtering and UI
+
+diff --git a/frontend/src/pages/Payroll.jsx b/frontend/src/pages/Payroll.jsx
+index 9fc8936..762340e 100644
+--- a/frontend/src/pages/Payroll.jsx
++++ b/frontend/src/pages/Payroll.jsx
+@@ -1,12 +1,18 @@
+ import React, { useState, useEffect } from 'react';
+-import { Calculator, User, FileSpreadsheet, CheckCircle, TrendingUp, Unlock, AlertCircle, X, Filter } from 'lucide-react';
++import { Calculator, User, FileSpreadsheet, CheckCircle, TrendingUp, Unlock, AlertCircle, X, Filter, Settings, Search } from 'lucide-react';
+ import api from '../utils/api';
+ import { useToast } from '../contexts/ToastContext';
+ import { usePermission } from '../contexts/PermissionContext';
++import DateRangePicker from '../components/DateRangePicker';
+ 
+ export default function Payroll() {
+   const { addToast } = useToast();
+-  const [yearMonth, setYearMonth] = useState('2026-04');
++  
++  const today = new Date();
++  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
++  const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
++  const [dateRange, setDateRange] = useState({ start: currentMonthStart, end: currentMonthEnd });
++  
+   const [payrolls, setPayrolls] = useState([]);
+   const [stats, setStats] = useState({ totalNet: 0, totalEmployees: 0, calculatedCount: 0 });
+   const [selectedRecord, setSelectedRecord] = useState(null);
+@@ -20,6 +26,27 @@ export default function Payroll() {
+   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'details'
+   const [searchTerm, setSearchTerm] = useState('');
+ 
++  const [employees, setEmployees] = useState([]);
++  const [selectedEmpIds, setSelectedEmpIds] = useState([]);
++  const [listStatusFilter, setListStatusFilter] = useState('ACTIVE');
++  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
++  
++  const [showColumnPicker, setShowColumnPicker] = useState(false);
++  const [visibleColumns, setVisibleColumns] = useState(() => {
++    try {
++      const saved = localStorage.getItem('payrollVisibleColumns');
++      const parsed = saved ? JSON.parse(saved) : null;
++      if (Array.isArray(parsed)) return parsed;
++      return ['name', 'code', 'department', 'total_addition', 'total_deduction', 'net_salary', 'status'];
++    } catch {
++      return ['name', 'code', 'department', 'total_addition', 'total_deduction', 'net_salary', 'status'];
++    }
++  });
++
++  useEffect(() => {
++    localStorage.setItem('payrollVisibleColumns', JSON.stringify(visibleColumns));
++  }, [visibleColumns]);
++
+   const allColumns = [
+     { id: 'name', label: '姓名' },
+     { id: 'code', label: '工號' },
+@@ -33,17 +60,17 @@ export default function Payroll() {
+ 
+   useEffect(() => {
+     fetchPayrolls();
+-  }, [yearMonth]);
++  }, [dateRange]);
+ 
+   const fetchPayrolls = async () => {
+     try {
+-      const res = await api.get(`/payrolls?year_month=${yearMonth}`);
++      const query = `start_date=${dateRange.start}&end_date=${dateRange.end}`;
++      const [res, empRes] = await Promise.all([
++        api.get(`/payrolls?${query}`),
++        api.get('/employees')
++      ]);
+       setPayrolls(res.data);
+-      
+-      const totalNet = res.data.reduce((sum, p) => sum + p.net_salary, 0);
+-      const calculated = res.data.length;
+-      
+-      const empRes = await api.get('/employees');
++      setEmployees(empRes.data);
+       setStats({
+         totalNet,
+         totalEmployees: empRes.data.length,
+@@ -58,9 +85,11 @@ export default function Payroll() {
+   };
+ 
+   const handleCalculate = async () => {
++    const ym = window.prompt('請輸入要試算的薪資月份 (格式: YYYY-MM)', dateRange.start.substring(0, 7));
++    if (!ym) return;
+     setLoading(true);
+     try {
+-      await api.post('/payrolls/calculate', { year_month: yearMonth });
++      await api.post('/payrolls/calculate', { year_month: ym });
+       addToast('試算完成', 'success');
+       fetchPayrolls();
+     } catch (e) {
+@@ -71,9 +100,10 @@ export default function Payroll() {
+   };
+ 
+   const handleFinalize = async () => {
+-    if (!window.confirm('結案後薪資將無法修改，確定執行？')) return;
++    const ym = window.prompt('結案後薪資將無法修改。請輸入要結案的薪資月份 (格式: YYYY-MM)', dateRange.start.substring(0, 7));
++    if (!ym) return;
+     try {
+-      await api.post('/payrolls/finalize', { year_month: yearMonth });
++      await api.post('/payrolls/finalize', { year_month: ym });
+       addToast('結案成功', 'success');
+       fetchPayrolls();
+     } catch (e) { addToast('操作失敗', 'error'); }
+@@ -81,8 +111,10 @@ export default function Payroll() {
+ 
+   const handleUnfinalize = async () => {
+     if (!isAdmin) return;
++    const ym = window.prompt('請輸入要取消結案的薪資月份 (格式: YYYY-MM)', dateRange.start.substring(0, 7));
++    if (!ym) return;
+     try {
+-      await api.post('/payrolls/unfinalize', { year_month: yearMonth });
++      await api.post('/payrolls/unfinalize', { year_month: ym });
+       addToast('已取消結案鎖定', 'info');
+       fetchPayrolls();
+     } catch (e) { addToast('操作失敗', 'error'); }
+@@ -91,11 +123,19 @@ export default function Payroll() {
+   const handleExport = async () => {
+     try {
+       addToast('正在準備報表...', 'info');
+-      const res = await api.get(`/payrolls/export?year_month=${yearMonth}`, { responseType: 'blob' });
++      const params = new URLSearchParams({
++        start_date: dateRange.start,
++        end_date: dateRange.end,
++        nameSearch: searchTerm
++      });
++      if (selectedEmpIds.length > 0) {
++        params.append('selectedEmpIds', selectedEmpIds.join(','));
++      }
++      const res = await api.get(`/payrolls/export?${params.toString()}`, { responseType: 'blob' });
+       const url = window.URL.createObjectURL(new Blob([res.data]));
+       const link = document.createElement('a');
+       link.href = url;
+-      link.setAttribute('download', `Payroll_${yearMonth}.xlsx`);
++      link.setAttribute('download', `Payroll_${dateRange.start}_${dateRange.end}.xlsx`);
+       document.body.appendChild(link);
+       link.click();
+       link.remove();
+@@ -122,10 +162,9 @@ export default function Payroll() {
+   };
+ 
+   const filteredPayrolls = payrolls.filter(p => {
+-    const name = p.employee?.name || '';
+-    const code = p.employee?.code || '';
+-    return name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+-           code.toLowerCase().includes(searchTerm.toLowerCase());
++    const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(p.employeeId);
++    const matchesNameSearch = !searchTerm || p.employee?.name?.includes(searchTerm) || p.employee?.code?.includes(searchTerm);
++    return matchesEmp && matchesNameSearch;
+   });
+ 
+   const isAllFinalized = payrolls.length > 0 && payrolls.every(p => p.status === 'FINALIZED');
+@@ -150,31 +189,108 @@ export default function Payroll() {
+ 
+       {activeTab === 'list' ? (
+         <>
+-          {/* Top Header/Filter Bar */}
+-          <div className="bg-[#f8f9fa] border-b border-gray-200 p-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
++          <div className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+             <div className="flex items-center gap-3">
+-              <div className="w-1 h-6 bg-indigo-600 rounded-full" />
+-              <h1 className="text-xl font-black text-gray-800">{isSelf ? '個人薪資查詢' : '薪資結算看板'}</h1>
++              <h1 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
++                <span className="text-indigo-600">▌</span> {isSelf ? '個人薪資查詢' : '薪資結算看板'}
++              </h1>
++              <DateRangePicker 
++                startDate={dateRange.start} 
++                endDate={dateRange.end} 
++                onDateChange={(start, end) => setDateRange({ start, end })} 
++              />
+             </div>
+ 
+             <div className="flex items-center gap-2">
++              <select 
++                value={listStatusFilter} 
++                onChange={e => { setListStatusFilter(e.target.value); setSelectedEmpIds([]); }}
++                className="bg-white border border-gray-300 rounded px-3 py-1.5 text-xs md:text-sm font-bold text-[#1e40af] outline-none hover:border-blue-400 transition-colors"
++              >
++                <option value="ACTIVE">在職中</option>
++                <option value="RESIGNED">已離職</option>
++                <option value="all">不分狀態</option>
++              </select>
++
++              <div className="relative">
++                <button 
++                  onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
++                  className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded text-xs md:text-sm font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm transition-colors"
++                >
++                  <User size={14} /> 人員篩選 {selectedEmpIds.length > 0 && <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full text-[10px] ml-1">{selectedEmpIds.length}</span>}
++                </button>
++                {isEmpDropdownOpen && (
++                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 shadow-xl rounded-xl z-50 p-4">
++                    <div className="flex justify-between items-center mb-3">
++                      <span className="text-sm font-black text-gray-700">選擇人員</span>
++                      <button onClick={()=>setIsEmpDropdownOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16}/></button>
++                    </div>
++                    <div className="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-2">
++                      <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer group">
++                        <input type="checkbox" checked={selectedEmpIds.length === 0} onChange={() => setSelectedEmpIds([])} className="rounded text-indigo-600 focus:ring-0" />
++                        <span className="text-sm font-bold text-gray-600 group-hover:text-indigo-600">全選所有人員</span>
++                      </label>
++                      <div className="h-px bg-gray-100 my-1" />
++                      {employees.filter(e => listStatusFilter === 'all' || e.status === listStatusFilter).map(emp => (
++                        <label key={emp.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer group">
++                          <input type="checkbox" checked={selectedEmpIds.includes(emp.id)} 
++                            onChange={(e) => {
++                              if(e.target.checked) setSelectedEmpIds([...selectedEmpIds, emp.id]);
++                              else setSelectedEmpIds(selectedEmpIds.filter(id => id !== emp.id));
++                            }} 
++                            className="rounded text-indigo-600 focus:ring-0" 
++                          />
++                          <span className="text-sm font-bold text-gray-600 group-hover:text-indigo-600">{emp.name} <span className="text-xs text-gray-400">({emp.code})</span></span>
++                        </label>
++                      ))}
++                    </div>
++                    <button onClick={()=>setIsEmpDropdownOpen(false)} className="w-full mt-3 bg-gray-900 text-white py-2 rounded-lg text-xs md:text-sm font-bold shadow-sm">確定</button>
++                  </div>
++                )}
++              </div>
++
+               <div className="relative">
++                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                 <input 
+                   type="text" 
+                   placeholder="搜尋姓名/工號..." 
+                   value={searchTerm}
+                   onChange={e => setSearchTerm(e.target.value)}
+-                  className="w-48 bg-white border border-gray-300 rounded px-3 py-1.5 text-xs font-bold outline-none focus:border-indigo-500 transition-all pl-8"
++                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-300 rounded text-xs md:text-sm font-bold outline-none w-48 focus:bg-white focus:border-blue-400 transition-all"
+                 />
+-                <User size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+               </div>
+-              <div className="flex items-center bg-white border border-gray-300 rounded px-2">
+-                <input 
+-                  type="month" 
+-                  value={yearMonth} 
+-                  onChange={e => setYearMonth(e.target.value)}
+-                  className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 py-1 outline-none" 
+-                />
++
++              <div className="relative">
++                <button 
++                  onClick={() => setShowColumnPicker(!showColumnPicker)}
++                  className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded text-sm font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm"
++                >
++                  <Settings size={14} /> 設定
++                </button>
++                {showColumnPicker && (
++                  <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-gray-200 shadow-xl rounded-xl z-50 p-4">
++                    <div className="flex justify-between items-center mb-3">
++                      <span className="text-sm font-black text-gray-700">自訂顯示欄位</span>
++                      <button onClick={() => setShowColumnPicker(false)} className="text-gray-300 hover:text-gray-500"><X size={16}/></button>
++                    </div>
++                    <div className="grid grid-cols-2 gap-1 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
++                      {allColumns.map(col => (
++                        <label key={col.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors group">
++                          <input 
++                            type="checkbox"
++                            checked={visibleColumns.includes(col.id)}
++                            onChange={(e) => {
++                              if (e.target.checked) setVisibleColumns([...visibleColumns, col.id]);
++                              else setVisibleColumns(visibleColumns.filter(id => id !== col.id));
++                            }}
++                            className="w-3 h-3 rounded border-gray-300 text-indigo-600 focus:ring-0"
++                          />
++                          <span className="text-xs md:text-sm font-bold text-gray-600 group-hover:text-indigo-600">{col.label}</span>
++                        </label>
++                      ))}
++                    </div>
++                  </div>
++                )}
+               </div>
+               
+               <div className="flex gap-2 ml-2">
+@@ -227,13 +343,15 @@ export default function Payroll() {
+             <table className="min-w-full border-collapse">
+               <thead className="bg-[#f0f4f8] sticky top-0 z-10">
+                 <tr>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">員工姓名</th>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">工號</th>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">部門</th>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">加項總額</th>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">扣項總額</th>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-indigo-600 uppercase tracking-tight">實發金額</th>
+-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">狀態</th>
++                  <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">月份</th>
++                  {visibleColumns.includes('name') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">員工姓名</th>}
++                  {visibleColumns.includes('code') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">工號</th>}
++                  {visibleColumns.includes('department') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">部門</th>}
++                  {visibleColumns.includes('position') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">職稱</th>}
++                  {visibleColumns.includes('total_addition') && <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">加項總額</th>}
++                  {visibleColumns.includes('total_deduction') && <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">扣項總額</th>}
++                  {visibleColumns.includes('net_salary') && <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-indigo-600 uppercase tracking-tight">實發金額</th>}
++                  {visibleColumns.includes('status') && <th className="px-6 py-2 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">狀態</th>}
+                   <th className="px-6 py-2 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">確認日期</th>
+                   <th className="px-6 py-2 border-b border-gray-300 text-center text-xs md:text-sm font-black text-gray-400">操作</th>
+                 </tr>
+@@ -241,19 +359,25 @@ export default function Payroll() {
+               <tbody className="bg-white text-xs md:text-sm">
+                 {filteredPayrolls.map((p, idx) => (
+                   <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors border-b border-gray-100 ${selectedRecord?.id === p.id ? 'bg-blue-50' : ''}`}>
+-                    <td className="px-6 py-3 border-r border-gray-200 font-bold text-[#1e40af] hover:underline cursor-pointer" onClick={() => { setSelectedRecord(p); setActiveTab('details'); }}>
+-                      {p.employee.name}
+-                    </td>
+-                    <td className="px-6 py-3 border-r border-gray-200 text-gray-500 font-mono">{p.employee.code}</td>
+-                    <td className="px-6 py-3 border-r border-gray-200 text-gray-500">{p.employee.department || '--'}</td>
+-                    <td className="px-6 py-3 border-r border-gray-200 text-right font-bold text-emerald-600">+${p.total_addition.toLocaleString()}</td>
+-                    <td className="px-6 py-3 border-r border-gray-200 text-right font-bold text-rose-600">-${p.total_deduction.toLocaleString()}</td>
+-                    <td className="px-6 py-3 border-r border-gray-200 text-right text-sm font-black text-indigo-600">${p.net_salary.toLocaleString()}</td>
+-                    <td className="px-6 py-3 border-r border-gray-200 text-center">
+-                      <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-black uppercase shadow-sm ${p.status === 'FINALIZED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
+-                        {p.status === 'FINALIZED' ? '已結案' : '試算中'}
+-                      </span>
+-                    </td>
++                    <td className="px-6 py-3 border-r border-gray-200 text-gray-500 font-bold">{p.year_month}</td>
++                    {visibleColumns.includes('name') && (
++                      <td className="px-6 py-3 border-r border-gray-200 font-bold text-[#1e40af] hover:underline cursor-pointer" onClick={() => { setSelectedRecord(p); setActiveTab('details'); }}>
++                        {p.employee.name}
++                      </td>
++                    )}
++                    {visibleColumns.includes('code') && <td className="px-6 py-3 border-r border-gray-200 text-gray-500 font-mono">{p.employee.code}</td>}
++                    {visibleColumns.includes('department') && <td className="px-6 py-3 border-r border-gray-200 text-gray-500">{p.employee.department || '--'}</td>}
++                    {visibleColumns.includes('position') && <td className="px-6 py-3 border-r border-gray-200 text-gray-500">{p.employee.position || '--'}</td>}
++                    {visibleColumns.includes('total_addition') && <td className="px-6 py-3 border-r border-gray-200 text-right font-bold text-emerald-600">+${p.total_addition.toLocaleString()}</td>}
++                    {visibleColumns.includes('total_deduction') && <td className="px-6 py-3 border-r border-gray-200 text-right font-bold text-rose-600">-${p.total_deduction.toLocaleString()}</td>}
++                    {visibleColumns.includes('net_salary') && <td className="px-6 py-3 border-r border-gray-200 text-right text-sm font-black text-indigo-600">${p.net_salary.toLocaleString()}</td>}
++                    {visibleColumns.includes('status') && (
++                      <td className="px-6 py-3 border-r border-gray-200 text-center">
++                        <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-black uppercase shadow-sm ${p.status === 'FINALIZED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
++                          {p.status === 'FINALIZED' ? '已結案' : '試算中'}
++                        </span>
++                      </td>
++                    )}
+                     <td className="px-6 py-3 border-r border-gray-200 text-center font-bold">
+                       {p.is_read ? (
+                         <div className="flex flex-col items-center">
+@@ -275,7 +399,7 @@ export default function Payroll() {
+                 ))}
+                 {filteredPayrolls.length === 0 && (
+                   <tr>
+-                    <td colSpan={8} className="py-20 text-center text-gray-300 font-bold italic tracking-widest">NO PAYROLL DATA</td>
++                    <td colSpan={3 + visibleColumns.length} className="py-20 text-center text-gray-300 font-bold italic tracking-widest">NO PAYROLL DATA</td>
+                   </tr>
+                 )}
+               </tbody>

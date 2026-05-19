@@ -20,6 +20,7 @@ router.get('/quotas', leaveController.getLeaveQuotas);
 router.get('/export', checkPermission('LEAVE', 'canView'), leaveController.exportLeaves);
 router.post('/quotas/batch', checkPermission('LEAVE', 'canEdit'), leaveController.batchUpdateQuotas);
 router.post('/quotas/auto', checkPermission('LEAVE', 'canEdit'), leaveController.autoCalculateQuotas);
+router.post('/carry-over', checkPermission('LEAVE', 'canEdit'), leaveController.carryOverQuotas);
 router.post('/quotas', checkPermission('LEAVE', 'canEdit'), leaveController.updateLeaveQuota);
 
 module.exports = router;

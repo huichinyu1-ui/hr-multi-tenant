@@ -26,7 +26,7 @@ exports.getLeaveTypes = async (req, res) => {
 
 exports.createLeaveType = async (req, res) => {
   try {
-    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note } = req.body;
+    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months } = req.body;
     const type = await req.db.leaveType.create({
       data: { 
         code, 
@@ -39,6 +39,8 @@ exports.createLeaveType = async (req, res) => {
         seniority_rules: seniority_rules || null,
         is_all_employees: is_all_employees ?? true,
         note,
+        is_carry_over_enabled: Boolean(is_carry_over_enabled),
+        carry_over_expiry_months: carry_over_expiry_months ? parseInt(carry_over_expiry_months) : null,
         eligibleEmployees: (!is_all_employees && eligibleEmployeeIds) ? {
           connect: eligibleEmployeeIds.map(id => ({ id: parseInt(id) }))
         } : undefined
@@ -53,7 +55,7 @@ exports.createLeaveType = async (req, res) => {
 
 exports.updateLeaveType = async (req, res) => {
   try {
-    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note } = req.body;
+    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months } = req.body;
     const type = await req.db.leaveType.update({
       where: { id: parseInt(req.params.id) },
       data: { 
@@ -67,6 +69,8 @@ exports.updateLeaveType = async (req, res) => {
         seniority_rules: seniority_rules || null,
         is_all_employees: is_all_employees ?? true,
         note,
+        is_carry_over_enabled: Boolean(is_carry_over_enabled),
+        carry_over_expiry_months: carry_over_expiry_months ? parseInt(carry_over_expiry_months) : null,
         eligibleEmployees: {
           set: (!is_all_employees && eligibleEmployeeIds) ? 
             eligibleEmployeeIds.map(id => ({ id: parseInt(id) })) : []
@@ -324,7 +328,11 @@ exports.getLeaveQuotas = async (req, res) => {
 
 exports.updateLeaveQuota = async (req, res) => {
   try {
-    const { employeeId, leaveTypeId, year, total_hours } = req.body;
+    const { employeeId, leaveTypeId, year, total_hours, carried_over_hours, annual_hours } = req.body;
+    const cHours = parseFloat(carried_over_hours) || 0;
+    const aHours = parseFloat(annual_hours) || 0;
+    const tHours = cHours + aHours || parseFloat(total_hours) || 0;
+
     const quota = await req.db.leaveQuota.upsert({
       where: {
         employeeId_leaveTypeId_year: {
@@ -333,12 +341,14 @@ exports.updateLeaveQuota = async (req, res) => {
           year: parseInt(year)
         }
       },
-      update: { total_hours: parseFloat(total_hours) },
+      update: { total_hours: tHours, carried_over_hours: cHours, annual_hours: aHours },
       create: {
         employeeId: parseInt(employeeId),
         leaveTypeId: parseInt(leaveTypeId),
         year: parseInt(year),
-        total_hours: parseFloat(total_hours)
+        total_hours: tHours,
+        carried_over_hours: cHours,
+        annual_hours: aHours
       }
     });
     res.json(quota);
@@ -352,7 +362,9 @@ exports.batchUpdateQuotas = async (req, res) => {
   console.log('Batch Quota Update Request:', JSON.stringify(quotas));
   try {
     const operations = quotas.map(q => {
-      const hours = parseFloat(q.total_hours) || 0;
+      const cHours = parseFloat(q.carried_over_hours) || 0;
+      const aHours = parseFloat(q.annual_hours) || 0;
+      const hours = cHours + aHours || parseFloat(q.total_hours) || 0;
       return req.db.leaveQuota.upsert({
         where: {
           employeeId_leaveTypeId_year: {
@@ -361,12 +373,14 @@ exports.batchUpdateQuotas = async (req, res) => {
             year: parseInt(q.year)
           }
         },
-        update: { total_hours: hours },
+        update: { total_hours: hours, carried_over_hours: cHours, annual_hours: aHours },
         create: {
           employeeId: parseInt(q.employeeId),
           leaveTypeId: parseInt(q.leaveTypeId),
           year: parseInt(q.year),
-          total_hours: hours
+          total_hours: hours,
+          carried_over_hours: cHours,
+          annual_hours: aHours
         }
       });
     });
@@ -556,6 +570,14 @@ exports.autoCalculateQuotas = async (req, res) => {
     const employees = await req.db.employee.findMany();
     const leaveTypes = await req.db.leaveType.findMany();
 
+    const existingQuotas = await req.db.leaveQuota.findMany({
+      where: { year: targetYear }
+    });
+    const quotaMap = {};
+    for (const q of existingQuotas) {
+      quotaMap[`${q.employeeId}_${q.leaveTypeId}`] = q.carried_over_hours || 0;
+    }
+
     const operations = [];
 
     for (const emp of employees) {
@@ -572,10 +594,12 @@ exports.autoCalculateQuotas = async (req, res) => {
 
       for (const lt of leaveTypes) {
         if (lt.quota_type === 'FIXED') {
+          const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
+          const annualHours = (lt.default_days || 0) * 8;
           operations.push(req.db.leaveQuota.upsert({
             where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
-            update: { total_hours: (lt.default_days || 0) * 8 },
-            create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, total_hours: (lt.default_days || 0) * 8 }
+            update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
+            create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours }
           }));
         } else if (lt.quota_type === 'SENIORITY' && lt.seniority_rules) {
           try {
@@ -588,10 +612,12 @@ exports.autoCalculateQuotas = async (req, res) => {
                 break;
               }
             }
+            const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
+            const annualHours = grantedDays * 8;
             operations.push(req.db.leaveQuota.upsert({
               where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
-              update: { total_hours: grantedDays * 8 },
-              create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, total_hours: grantedDays * 8 }
+              update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
+              create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours }
             }));
           } catch (e) { console.error('Failed to parse seniority_rules for ' + lt.code); }
         }
@@ -610,5 +636,108 @@ exports.autoCalculateQuotas = async (req, res) => {
   } catch (error) {
     console.error('Auto Calc Quotas Error:', error);
     res.status(500).json({ error: '自動計算額度失敗' });
+  }
+};
+
+exports.carryOverQuotas = async (req, res) => {
+  const { sourceYear } = req.body;
+  if (!sourceYear) return res.status(400).json({ error: '必須提供來源年份' });
+  
+  const targetYear = parseInt(sourceYear) + 1;
+
+  try {
+    const leaveTypes = await req.db.leaveType.findMany({
+      where: { is_carry_over_enabled: true }
+    });
+    
+    if (leaveTypes.length === 0) {
+      return res.json({ message: '沒有任何假別啟用跨年度結轉，無資料處理。' });
+    }
+
+    const typeIds = leaveTypes.map(lt => lt.id);
+    
+    const sourceQuotas = await req.db.leaveQuota.findMany({
+      where: { year: parseInt(sourceYear), leaveTypeId: { in: typeIds } }
+    });
+
+    const operations = [];
+    let count = 0;
+
+    for (const q of sourceQuotas) {
+      const requests = await req.db.leaveRequest.findMany({
+        where: {
+          employeeId: q.employeeId,
+          leaveTypeId: q.leaveTypeId,
+          status: 'APPROVED',
+          start_date: { startsWith: sourceYear.toString() }
+        }
+      });
+
+      let usedHours = 0;
+      requests.forEach(r => {
+        const sDate = new Date(r.start_date);
+        const eDate = new Date(r.end_date);
+        const diffDays = Math.round((eDate - sDate) / 86400000);
+        
+        if (diffDays === 0) {
+          const sTime = (r.start_time || '08:00').split(':');
+          const eTime = (r.end_time || '17:00').split(':');
+          const sMin = parseInt(sTime[0]) * 60 + parseInt(sTime[1]);
+          const eMin = parseInt(eTime[0]) * 60 + parseInt(eTime[1]);
+          let h = (eMin - sMin) / 60;
+          if (h >= 9) h = 8; 
+          else if (h > 4 && h < 9) h = h - 1; 
+          usedHours += h;
+        } else {
+          usedHours += (diffDays + 1) * 8;
+        }
+      });
+
+      const remaining = q.total_hours - usedHours;
+      if (remaining > 0) {
+        const existingTarget = await req.db.leaveQuota.findUnique({
+          where: {
+            employeeId_leaveTypeId_year: {
+              employeeId: q.employeeId,
+              leaveTypeId: q.leaveTypeId,
+              year: targetYear
+            }
+          }
+        });
+
+        const aHours = existingTarget ? existingTarget.annual_hours : 0;
+        const newTotal = remaining + aHours;
+
+        operations.push(req.db.leaveQuota.upsert({
+          where: {
+            employeeId_leaveTypeId_year: {
+              employeeId: q.employeeId,
+              leaveTypeId: q.leaveTypeId,
+              year: targetYear
+            }
+          },
+          update: { carried_over_hours: remaining, total_hours: newTotal },
+          create: {
+            employeeId: q.employeeId,
+            leaveTypeId: q.leaveTypeId,
+            year: targetYear,
+            carried_over_hours: remaining,
+            annual_hours: aHours,
+            total_hours: newTotal
+          }
+        }));
+        count++;
+      }
+    }
+
+    const CHUNK_SIZE = 20;
+    for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
+      await Promise.all(operations.slice(i, i + CHUNK_SIZE));
+    }
+
+    res.json({ message: `成功將 ${count} 筆額度結轉至 ${targetYear} 年度！` });
+  } catch (error) {
+    console.error('Carry Over Error:', error);
+    res.status(500).json({ error: '結轉失敗' });
   }
 };

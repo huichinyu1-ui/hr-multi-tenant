@@ -185,6 +185,8 @@ model LeaveType {
   seniority_rules String?                             // SENIORITY 年資級距表 (JSON string)
   is_all_employees Boolean   @default(true) 
   note            String?   // 備註欄位
+  is_carry_over_enabled   Boolean  @default(false)    // 是否啟用跨年度結轉
+  carry_over_expiry_months Int?                       // 結轉時數使用期限（月數，null = 永久）
   eligibleEmployees Employee[] @relation("LeaveTypeEligibility")
   requests        LeaveRequest[]
   quotas          LeaveQuota[]
@@ -289,13 +291,15 @@ model OvertimeRequest {
 }
 
 model LeaveQuota {
-  id           Int      @id @default(autoincrement())
-  employeeId   Int
-  leaveTypeId  Int
-  year         Int
-  total_hours  Float    @default(0) 
-  employee     Employee @relation(fields: [employeeId], references: [id])
-  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  id                 Int      @id @default(autoincrement())
+  employeeId         Int
+  leaveTypeId        Int
+  year               Int
+  carried_over_hours Float    @default(0) // 結轉剩餘休假時數（由上年度結轉）
+  annual_hours       Float    @default(0) // 本年度休假時數
+  total_hours        Float    @default(0) // 年度總額度 (carried_over + annual)
+  employee           Employee @relation(fields: [employeeId], references: [id])
+  leaveType          LeaveType @relation(fields: [leaveTypeId], references: [id])
 
   @@unique([employeeId, leaveTypeId, year])
 }

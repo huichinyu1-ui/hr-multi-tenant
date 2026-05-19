@@ -39,7 +39,7 @@ export default function Leaves() {
     return {
       requests: ['seq', 'code', 'name', 'type', 'start', 'end', 'hours', 'status'],
       overtime: ['seq', 'code', 'name', 'date', 'time', 'reason', 'status'],
-      quotas: ['seq', 'code', 'name', 'leave_type', 'total', 'used', 'remaining', 'usage']
+      quotas: ['seq', 'code', 'name', 'leave_type', 'carried_over', 'annual', 'total', 'used', 'remaining']
     };
   });
 
@@ -72,6 +72,8 @@ export default function Leaves() {
       { id: 'code', label: '工號' },
       { id: 'name', label: '員工姓名' },
       { id: 'leave_type', label: '假別項目' },
+      { id: 'carried_over', label: '結轉剩餘休假' },
+      { id: 'annual', label: '本年度休假' },
       { id: 'total', label: '年度總額度' },
       { id: 'used', label: '已用時數' },
       { id: 'remaining', label: '剩餘時數' },
@@ -183,6 +185,56 @@ export default function Leaves() {
       }
       setQuotas(filtered);
     } catch (e) { console.error(e); }
+  };
+
+  const handleInlineQuotaUpdate = (q, field, value) => {
+    setQuotas(prev => prev.map(item => item.id === q.id ? { ...item, [field]: value === '' ? '' : parseFloat(value) || 0 } : item));
+  };
+
+  const saveInlineQuota = async (q) => {
+    try {
+      const payload = {
+        employeeId: q.employeeId,
+        leaveTypeId: q.leaveTypeId,
+        year: q.year,
+        carried_over_hours: q.carried_over_hours || 0,
+        annual_hours: q.annual_hours || 0,
+        total_hours: (q.carried_over_hours || 0) + (q.annual_hours || 0)
+      };
+      await api.post('/leaves/quotas', payload);
+      // fetchQuotas(); // optionally refetch
+    } catch (e) {
+      addToast('儲存額度失敗', 'error');
+      fetchQuotas();
+    }
+  };
+
+  const handleAutoCalcQuotas = async () => {
+    if (!window.confirm('系統將會批次試算員工【本年度休假時數】，是否繼續？')) return;
+    try {
+      setLoading(true);
+      await api.post('/leaves/quotas/auto', { year: new Date().getFullYear() });
+      addToast('年度額度自動試算完成！', 'success');
+      fetchQuotas();
+    } catch (e) {
+      addToast('試算失敗', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCarryOver = async () => {
+    if (!window.confirm('執行年度結轉將會將員工未使用的假別額度轉換至明年的【結轉剩餘休假】，確定要執行嗎？\n(此動作建議在年底執行)')) return;
+    try {
+      setLoading(true);
+      const res = await api.post('/leaves/carry-over', { sourceYear: new Date().getFullYear() });
+      addToast(res.data.message || '結轉完成！', 'success');
+      fetchQuotas();
+    } catch (e) {
+      addToast('結轉失敗', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -313,6 +365,16 @@ export default function Leaves() {
             />
           </div>
           <div className="flex items-center gap-3">
+            {activeTab === 'quotas' && canManage && (
+              <>
+                <button onClick={handleAutoCalcQuotas} disabled={loading} className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors shadow-sm border border-indigo-200 disabled:opacity-50">
+                  🤖 批次試算本年度特休
+                </button>
+                <button onClick={handleCarryOver} disabled={loading} className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-orange-100 transition-colors shadow-sm border border-orange-200 disabled:opacity-50">
+                  執行年度結轉
+                </button>
+              </>
+            )}
             {/* 保留未來可能新增的右側按鈕區域 */}
           </div>
         </div>
@@ -621,6 +683,8 @@ export default function Leaves() {
                   {visibleColumns.quotas?.includes('code') && <th className="px-4 py-2 text-left border-r border-gray-300">工號</th>}
                   {visibleColumns.quotas?.includes('name') && <th className="px-4 py-2 text-left border-r border-gray-300">員工姓名</th>}
                   {visibleColumns.quotas?.includes('leave_type') && <th className="px-4 py-2 text-left border-r border-gray-300">假別項目</th>}
+                  {visibleColumns.quotas?.includes('carried_over') && <th className="px-4 py-2 text-center border-r border-gray-300 text-orange-600 bg-orange-50/50">結轉剩餘休假</th>}
+                  {visibleColumns.quotas?.includes('annual') && <th className="px-4 py-2 text-center border-r border-gray-300 text-indigo-600 bg-indigo-50/50">本年度休假</th>}
                   {visibleColumns.quotas?.includes('total') && <th className="px-4 py-2 text-center border-r border-gray-300">年度總額度</th>}
                   {visibleColumns.quotas?.includes('used') && <th className="px-4 py-2 text-center border-r border-gray-300 text-blue-600">已用時數</th>}
                   {visibleColumns.quotas?.includes('remaining') && <th className="px-4 py-2 text-center border-r border-gray-300 text-emerald-600">剩餘時數</th>}
@@ -634,16 +698,57 @@ export default function Leaves() {
                     {visibleColumns.quotas?.includes('code') && <td className="px-4 py-2 border-r border-gray-200 text-gray-500 font-mono">{q.employee.code}</td>}
                     {visibleColumns.quotas?.includes('name') && <td className="px-4 py-2 border-r border-gray-200 font-bold text-gray-700">{q.employee.name}</td>}
                     {visibleColumns.quotas?.includes('leave_type') && <td className="px-4 py-2 border-r border-gray-200 font-bold text-[#1e40af]">{q.leaveType.name}</td>}
-                    {visibleColumns.quotas?.includes('total') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold font-mono">{Math.round(q.total_hours)}h</td>}
+                    
+                    {visibleColumns.quotas?.includes('carried_over') && (
+                      <td className="px-2 py-1 border-r border-gray-200 text-center bg-orange-50/20">
+                        {canManage ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <input 
+                              type="number" 
+                              className="w-16 text-center border border-gray-300 rounded font-mono font-bold text-orange-600 px-1 py-1 text-sm bg-white hover:border-orange-400 focus:border-orange-500 outline-none transition-colors"
+                              value={q.carried_over_hours === '' ? '' : (q.carried_over_hours || 0)}
+                              onChange={(e) => handleInlineQuotaUpdate(q, 'carried_over_hours', e.target.value)}
+                              onBlur={() => saveInlineQuota(q)}
+                              placeholder="0"
+                            />
+                            <span className="text-xs text-gray-400 font-bold">h</span>
+                          </div>
+                        ) : (
+                          <span className="font-bold font-mono text-orange-600">{q.carried_over_hours || 0}h</span>
+                        )}
+                      </td>
+                    )}
+                    
+                    {visibleColumns.quotas?.includes('annual') && (
+                      <td className="px-2 py-1 border-r border-gray-200 text-center bg-indigo-50/20">
+                        {canManage ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <input 
+                              type="number" 
+                              className="w-16 text-center border border-gray-300 rounded font-mono font-bold text-indigo-600 px-1 py-1 text-sm bg-white hover:border-indigo-400 focus:border-indigo-500 outline-none transition-colors"
+                              value={q.annual_hours === '' ? '' : (q.annual_hours || 0)}
+                              onChange={(e) => handleInlineQuotaUpdate(q, 'annual_hours', e.target.value)}
+                              onBlur={() => saveInlineQuota(q)}
+                              placeholder="0"
+                            />
+                            <span className="text-xs text-gray-400 font-bold">h</span>
+                          </div>
+                        ) : (
+                          <span className="font-bold font-mono text-indigo-600">{q.annual_hours || 0}h</span>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.quotas?.includes('total') && <td className="px-4 py-2 border-r border-gray-200 text-center font-black font-mono bg-gray-50/50">{Math.round((q.carried_over_hours||0) + (q.annual_hours||0))}h</td>}
                     {visibleColumns.quotas?.includes('used') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold font-mono text-blue-600">{Math.round(q.used_days * 8)}h</td>}
-                    {visibleColumns.quotas?.includes('remaining') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold font-mono text-emerald-600">{Math.round(q.remaining_days * 8)}h</td>}
+                    {visibleColumns.quotas?.includes('remaining') && <td className="px-4 py-2 border-r border-gray-200 text-center font-black font-mono text-emerald-600">{Math.round(((q.carried_over_hours||0) + (q.annual_hours||0)) - (q.used_days * 8))}h</td>}
                     {visibleColumns.quotas?.includes('usage') && (
                       <td className="px-4 py-2 min-w-[120px]">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden shadow-inner border border-gray-200">
-                            <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, (q.used_days / (q.total_hours/8 || 1)) * 100)}%` }}></div>
+                            <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, (q.used_days / (((q.carried_over_hours||0)+(q.annual_hours||0))/8 || 1)) * 100)}%` }}></div>
                           </div>
-                          <span className="text-[10px] text-gray-400 font-mono">{Math.round((q.used_days / (q.total_hours/8 || 1)) * 100)}%</span>
+                          <span className="text-[10px] text-gray-400 font-mono">{Math.round((q.used_days / (((q.carried_over_hours||0)+(q.annual_hours||0))/8 || 1)) * 100)}%</span>
                         </div>
                       </td>
                     )}

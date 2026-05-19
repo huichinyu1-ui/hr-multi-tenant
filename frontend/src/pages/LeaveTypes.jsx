@@ -22,7 +22,9 @@ export default function LeaveTypes() {
     quota_type: 'UNLIMITED',
     default_days: 0,
     seniority_rules: [],
-    note: '' 
+    note: '',
+    is_carry_over_enabled: false,
+    carry_over_expiry_months: ''
   };
   const [form, setForm] = useState(initialForm);
   const baseInputRef = useRef(null);
@@ -52,7 +54,8 @@ export default function LeaveTypes() {
     try {
       const payload = {
         ...form,
-        seniority_rules: form.quota_type === 'SENIORITY' ? JSON.stringify(form.seniority_rules) : null
+        seniority_rules: form.quota_type === 'SENIORITY' ? JSON.stringify(form.seniority_rules) : null,
+        carry_over_expiry_months: form.is_carry_over_enabled && form.carry_over_expiry_months ? parseInt(form.carry_over_expiry_months) : null
       };
 
       if (form.id) await api.put(`/leaves/types/${form.id}`, payload);
@@ -275,6 +278,39 @@ export default function LeaveTypes() {
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 animate-in fade-in zoom-in-95 duration-300">
                <p className="text-sm font-black text-gray-600">不限制年度額度</p>
                <p className="text-[10px] text-gray-400 font-bold mt-1">此假別（如公假、喪假）不需事前派發額度，由員工檢附證明直接申請，系統僅紀錄時數供薪資結算使用。</p>
+            </div>
+          )}
+
+          {form.quota_type !== 'UNLIMITED' && (
+            <div className="pt-4 border-t border-gray-200 space-y-4 animate-in fade-in duration-300">
+              <h4 className="text-xs font-black text-indigo-600 flex items-center gap-2">🔄 跨年度結轉設定</h4>
+              <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors shadow-sm w-fit">
+                <input 
+                  type="checkbox"
+                  checked={form.is_carry_over_enabled || false}
+                  onChange={(e) => setForm({...form, is_carry_over_enabled: e.target.checked})}
+                  className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className="text-sm font-bold text-gray-700">啟用跨年度結轉</span>
+              </label>
+              
+              {form.is_carry_over_enabled && (
+                <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">結轉時數有效期限 (月數)</label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={form.carry_over_expiry_months || ''} 
+                      onChange={e=>setForm({...form, carry_over_expiry_months: e.target.value})} 
+                      className="w-32 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm font-bold focus:border-indigo-400 outline-none shadow-sm" 
+                      placeholder="無限期"
+                    />
+                    <span className="text-sm font-bold text-gray-500">個月</span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-bold leading-relaxed ml-1">若留空代表結轉的時數永不過期。</p>
+                </div>
+              )}
             </div>
           )}
 
