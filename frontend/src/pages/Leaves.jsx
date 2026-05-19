@@ -210,7 +210,7 @@ export default function Leaves() {
   };
 
   const handleAutoCalcQuotas = async () => {
-    if (!window.confirm('系統將會批次試算員工【本年度休假時數】，是否繼續？')) return;
+    if (!window.confirm('系統即將根據「歷年制」比例重新試算全體員工本年度特休（計算結果將無條件進位）。\n\n⚠️ 【重要轉換提醒】\n若貴公司今年是「首年由週年制轉換為歷年制」，系統算出的年度時數會包含「上半年」的特休額度。為避免與去年已發放的時數重複，建議您在試算完成後，自行將重複發放的時數扣除。\n\n確定要執行批次試算嗎？')) return;
     try {
       setLoading(true);
       await api.post('/leaves/quotas/auto', { year: new Date().getFullYear() });

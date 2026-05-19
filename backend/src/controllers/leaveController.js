@@ -604,16 +604,35 @@ exports.autoCalculateQuotas = async (req, res) => {
         } else if (lt.quota_type === 'SENIORITY' && lt.seniority_rules) {
           try {
             const rules = JSON.parse(lt.seniority_rules).sort((a, b) => b.months - a.months);
-            let grantedDays = 0;
-            // 找符合的最大級距
-            for (const rule of rules) {
-              if (seniorityYears * 12 >= rule.months) {
-                grantedDays = rule.days;
-                break;
+            
+            // 歷年制：按日比例計算
+            const isLeapYear = (targetYear % 4 === 0 && targetYear % 100 !== 0) || (targetYear % 400 === 0);
+            const daysInYear = isLeapYear ? 366 : 365;
+            
+            let totalAnnualHours = 0;
+            
+            for (let i = 0; i < daysInYear; i++) {
+              const currentDate = new Date(targetYear, 0, i + 1);
+              
+              // 計算當天年資(月)
+              let diffMonths = (currentDate.getFullYear() - joinDate.getFullYear()) * 12 + (currentDate.getMonth() - joinDate.getMonth());
+              if (currentDate.getDate() < joinDate.getDate()) diffMonths -= 1;
+              
+              let grantedDays = 0;
+              for (const rule of rules) {
+                if (diffMonths >= rule.months) {
+                  grantedDays = rule.days;
+                  break;
+                }
               }
+              
+              totalAnnualHours += (grantedDays * 8) / daysInYear;
             }
+            
+            // 依據使用者需求：計算直接無條件進位
+            const annualHours = Math.ceil(totalAnnualHours);
             const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
-            const annualHours = grantedDays * 8;
+            
             operations.push(req.db.leaveQuota.upsert({
               where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
               update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
