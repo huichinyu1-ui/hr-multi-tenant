@@ -192,27 +192,30 @@ export default function Leaves() {
     setQuotas(prev => prev.map(item => item.id === q.id ? { ...item, [field]: value === '' ? '' : parseFloat(value) || 0 } : item));
   };
 
-  const saveInlineQuota = async (q) => {
-    if (!window.confirm(`確定要手動調整員工【${q.employee?.name || '此位員工'}】的額度嗎？\n請確認數值無誤，避免影響員工權益。`)) {
-      fetchQuotas(); // 復原
-      return;
-    }
-    try {
-      const payload = {
-        employeeId: q.employeeId,
-        leaveTypeId: q.leaveTypeId,
-        year: q.year,
-        carried_over_hours: q.carried_over_hours || 0,
-        annual_hours: q.annual_hours || 0,
-        total_hours: (q.carried_over_hours || 0) + (q.annual_hours || 0)
-      };
-      await api.post('/leaves/quotas', payload);
-      addToast('額度調整已儲存', 'success');
-      // fetchQuotas(); // optionally refetch
-    } catch (e) {
-      addToast('儲存額度失敗', 'error');
-      fetchQuotas();
-    }
+  const saveInlineQuota = (q) => {
+    // 使用 setTimeout 讓瀏覽器的 blur 事件先行完成，避免 window.confirm 造成無窮迴圈或畫面死當
+    setTimeout(async () => {
+      if (!window.confirm(`確定要手動調整員工【${q.employee?.name || '此位員工'}】的額度嗎？\n請確認數值無誤，避免影響員工權益。`)) {
+        fetchQuotas(); // 復原
+        return;
+      }
+      try {
+        const payload = {
+          employeeId: q.employeeId,
+          leaveTypeId: q.leaveTypeId,
+          year: q.year,
+          carried_over_hours: q.carried_over_hours || 0,
+          annual_hours: q.annual_hours || 0,
+          total_hours: (q.carried_over_hours || 0) + (q.annual_hours || 0)
+        };
+        await api.post('/leaves/quotas', payload);
+        addToast('額度調整已儲存', 'success');
+        // fetchQuotas(); // optionally refetch
+      } catch (e) {
+        addToast('儲存額度失敗', 'error');
+        fetchQuotas();
+      }
+    }, 50);
   };
 
   const handleAutoCalcQuotas = async () => {
