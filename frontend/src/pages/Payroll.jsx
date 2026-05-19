@@ -8,26 +8,72 @@ import DateRangePicker from '../components/DateRangePicker';
 export default function Payroll() {
   const { addToast } = useToast();
   
+  const getMonthString = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const today = new Date();
+  const thisMonthStr = getMonthString(today);
+  const lastMonthStr = getMonthString(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+  const thisYearStartStr = `${today.getFullYear()}-01`;
+  const thisYearEndStr = `${today.getFullYear()}-12`;
+
+  const [selectedStartMonth, setSelectedStartMonth] = useState(thisMonthStr);
+  const [selectedEndMonth, setSelectedEndMonth] = useState(thisMonthStr);
+
   const formatLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const currentMonthStart = formatLocal(new Date(today.getFullYear(), today.getMonth(), 1));
   const currentMonthEnd = formatLocal(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   const [dateRange, setDateRange] = useState({ start: currentMonthStart, end: currentMonthEnd });
-  
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  });
 
-  const handleMonthChange = (ym) => {
-    if (!ym) return;
-    setSelectedMonth(ym);
-    const [year, month] = ym.split('-').map(Number);
-    const start = `${ym}-01`;
-    const end = `${ym}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`;
+  const updateDateRange = (startM, endM) => {
+    const [eYear, eMonth] = endM.split('-').map(Number);
+    const start = `${startM}-01`;
+    const end = `${endM}-${String(new Date(eYear, eMonth, 0).getDate()).padStart(2, '0')}`;
     setDateRange({ start, end });
   };
+
+  const handleStartMonthChange = (val) => {
+    if (!val) return;
+    setSelectedStartMonth(val);
+    let currentEnd = selectedEndMonth;
+    if (val > selectedEndMonth) {
+      setSelectedEndMonth(val);
+      currentEnd = val;
+    }
+    updateDateRange(val, currentEnd);
+  };
+
+  const handleEndMonthChange = (val) => {
+    if (!val) return;
+    setSelectedEndMonth(val);
+    let currentStart = selectedStartMonth;
+    if (val < selectedStartMonth) {
+      setSelectedStartMonth(val);
+      currentStart = val;
+    }
+    updateDateRange(currentStart, val);
+  };
+
+  const setFilterThisMonth = () => {
+    setSelectedStartMonth(thisMonthStr);
+    setSelectedEndMonth(thisMonthStr);
+    updateDateRange(thisMonthStr, thisMonthStr);
+  };
+
+  const setFilterLastMonth = () => {
+    setSelectedStartMonth(lastMonthStr);
+    setSelectedEndMonth(lastMonthStr);
+    updateDateRange(lastMonthStr, lastMonthStr);
+  };
+
+  const setFilterThisYear = () => {
+    setSelectedStartMonth(thisYearStartStr);
+    setSelectedEndMonth(thisYearEndStr);
+    updateDateRange(thisYearStartStr, thisYearEndStr);
+  };
+
+  const isThisMonthActive = selectedStartMonth === thisMonthStr && selectedEndMonth === thisMonthStr;
+  const isLastMonthActive = selectedStartMonth === lastMonthStr && selectedEndMonth === lastMonthStr;
+  const isThisYearActive = selectedStartMonth === thisYearStartStr && selectedEndMonth === thisYearEndStr;
+
   
   const [payrolls, setPayrolls] = useState([]);
   const [stats, setStats] = useState({ totalNet: 0, totalEmployees: 0, calculatedCount: 0 });
@@ -88,7 +134,16 @@ export default function Payroll() {
         api.get(`/payrolls?${query}`),
         api.get('/employees')
       ]);
-      setPayrolls(res.data);
+      
+      // Sort chronologically (由舊到新): year_month ASC, and then by employee code ASC
+      const sortedPayrolls = (res.data || []).sort((a, b) => {
+        if (a.year_month !== b.year_month) {
+          return a.year_month.localeCompare(b.year_month);
+        }
+        return (a.employee?.code || '').localeCompare(b.employee?.code || '');
+      });
+
+      setPayrolls(sortedPayrolls);
       setEmployees(empRes.data);
       setSelectedIds([]); // Reset selection when data is re-fetched
       const totalNet = res.data.reduce((sum, p) => sum + p.net_salary, 0);
@@ -314,7 +369,7 @@ export default function Payroll() {
           `}
         }
       `}} />
-      <div className="flex flex-col h-[calc(100vh-160px)] bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm animate-in fade-in duration-500 main-app-container">
+      <div className="flex flex-col h-[calc(100vh-100px)] bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm animate-in fade-in duration-500 main-app-container">
         {/* Tab Navigation */}
         <div className="flex bg-gray-50 border-b border-gray-200 shrink-0 print:hidden">
           <button 
@@ -337,18 +392,28 @@ export default function Payroll() {
               {/* Top Tier: Title, Date Range, Action Buttons */}
               <div className="px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-black text-gray-800 tracking-tight flex items-center gap-2">
+                  <h1 className="text-xl font-black text-gray-800 tracking-tight flex flex-wrap items-center gap-2">
                     <span className="text-indigo-600">▌</span> {isSelf ? '個人薪資查詢' : '薪資結算看板'}
+                    {!isSelf && (
+                      <div className="flex items-center gap-1.5 ml-2">
+                        <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm shrink-0">
+                          預估支出: ${stats.totalNet.toLocaleString()}
+                        </span>
+                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm shrink-0">
+                          已結算: {stats.calculatedCount} / {stats.totalEmployees}
+                        </span>
+                        {isAllFinalized ? (
+                          <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm flex items-center gap-0.5 cursor-pointer hover:bg-amber-100 transition-colors shrink-0" onClick={handleUnfinalize}>
+                            <Unlock size={10} /> 已鎖定
+                          </span>
+                        ) : (
+                          <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm flex items-center gap-0.5 cursor-pointer hover:bg-blue-100 transition-colors shrink-0" onClick={handleFinalize}>
+                            <CheckCircle size={10} /> 執行結案
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </h1>
-                  <div className="flex items-center gap-2 bg-white border border-gray-300 rounded px-3 py-1.5 shadow-sm hover:border-indigo-400 transition-colors shrink-0">
-                    <span className="text-xs font-bold text-gray-500">月份</span>
-                    <input 
-                      type="month" 
-                      value={selectedMonth} 
-                      onChange={(e) => handleMonthChange(e.target.value)} 
-                      className="text-xs font-bold text-indigo-600 outline-none cursor-pointer bg-transparent border-none p-0 focus:ring-0"
-                    />
-                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -379,121 +444,139 @@ export default function Payroll() {
                 </div>
               </div>
 
-            {/* Bottom Tier: Filters */}
-            <div className="px-6 py-2.5 bg-gray-50 flex items-center gap-4 text-sm border-t border-gray-100">
-              <div className="flex items-center gap-2">
-                <Filter size={14} className="text-gray-400" />
-                <span className="text-gray-500 font-bold text-xs">列表篩選</span>
-              </div>
-              
-              <select 
-                value={listStatusFilter} 
-                onChange={e => { setListStatusFilter(e.target.value); setSelectedEmpIds([]); }}
-                className="bg-white border border-gray-300 rounded px-3 py-1 text-xs font-bold text-[#1e40af] outline-none hover:border-blue-400 transition-colors shadow-sm"
-              >
-                <option value="ACTIVE">在職中</option>
-                <option value="RESIGNED">已離職</option>
-                <option value="all">不分狀態</option>
-              </select>
-
-              <div className="relative">
-                <button 
-                  onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
-                  className="bg-white border border-gray-300 text-gray-600 px-3 py-1 rounded text-xs font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm transition-colors"
-                >
-                  <User size={14} /> 人員選擇 {selectedEmpIds.length > 0 && <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full text-[10px] ml-1">{selectedEmpIds.length}</span>}
-                </button>
-                {isEmpDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 shadow-xl rounded-xl z-50 p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-sm font-black text-gray-700">選擇人員</span>
-                      <button onClick={()=>setIsEmpDropdownOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16}/></button>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-2">
-                      <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer group">
-                        <input type="checkbox" checked={selectedEmpIds.length === 0} onChange={() => setSelectedEmpIds([])} className="rounded text-indigo-600 focus:ring-0" />
-                        <span className="text-sm font-bold text-gray-600 group-hover:text-indigo-600">全選所有人員</span>
-                      </label>
-                      <div className="h-px bg-gray-100 my-1" />
-                      {employees.filter(e => listStatusFilter === 'all' || e.status === listStatusFilter).map(emp => (
-                        <label key={emp.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer group">
-                          <input type="checkbox" checked={selectedEmpIds.includes(emp.id)} 
-                            onChange={(e) => {
-                              if(e.target.checked) setSelectedEmpIds([...selectedEmpIds, emp.id]);
-                              else setSelectedEmpIds(selectedEmpIds.filter(id => id !== emp.id));
-                            }} 
-                            className="rounded text-indigo-600 focus:ring-0" 
-                          />
-                          <span className="text-sm font-bold text-gray-600 group-hover:text-indigo-600">{emp.name} <span className="text-xs text-gray-400">({emp.code})</span></span>
-                        </label>
-                      ))}
-                    </div>
-                    <button onClick={()=>setIsEmpDropdownOpen(false)} className="w-full mt-3 bg-gray-900 text-white py-2 rounded-lg text-xs md:text-sm font-bold shadow-sm">確定</button>
+              {/* Bottom Tier: Consolidated Month Range, Quick Buttons & List Filters */}
+              <div className="px-6 py-2.5 bg-gray-50 flex flex-wrap items-center justify-between gap-4 border-t border-gray-100">
+                {/* Left Part: Month Range & Quick Buttons */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5 bg-white border border-gray-300 rounded px-2.5 py-1 shadow-sm hover:border-indigo-400 transition-colors shrink-0">
+                    <span className="text-[11px] font-black text-gray-500">從</span>
+                    <input 
+                      type="month" 
+                      value={selectedStartMonth} 
+                      onChange={(e) => handleStartMonthChange(e.target.value)} 
+                      className="text-[11px] font-black text-indigo-600 outline-none cursor-pointer bg-transparent border-none p-0 focus:ring-0 w-24"
+                    />
+                    <span className="text-[11px] font-black text-gray-400 mx-0.5">至</span>
+                    <input 
+                      type="month" 
+                      value={selectedEndMonth} 
+                      onChange={(e) => handleEndMonthChange(e.target.value)} 
+                      className="text-[11px] font-black text-indigo-600 outline-none cursor-pointer bg-transparent border-none p-0 focus:ring-0 w-24"
+                    />
                   </div>
-                )}
-              </div>
 
-              <div className="h-4 w-px bg-gray-300 mx-1"></div>
-
-              <div className="relative">
-                <button 
-                  onClick={() => setShowColumnPicker(!showColumnPicker)}
-                  className="bg-white border border-gray-300 text-gray-600 px-3 py-1 rounded text-xs font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm transition-colors"
-                >
-                  <Settings size={14} /> 顯示欄位
-                </button>
-                {showColumnPicker && (
-                  <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 shadow-xl rounded-xl z-50 p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-sm font-black text-gray-700">自訂顯示欄位</span>
-                      <button onClick={() => setShowColumnPicker(false)} className="text-gray-300 hover:text-gray-500"><X size={16}/></button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                      {allColumns.map(col => (
-                        <label key={col.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors group">
-                          <input 
-                            type="checkbox"
-                            checked={visibleColumns.includes(col.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) setVisibleColumns([...visibleColumns, col.id]);
-                              else setVisibleColumns(visibleColumns.filter(id => id !== col.id));
-                            }}
-                            className="w-3 h-3 rounded border-gray-300 text-indigo-600 focus:ring-0"
-                          />
-                          <span className="text-xs md:text-sm font-bold text-gray-600 group-hover:text-indigo-600">{col.label}</span>
-                        </label>
-                      ))}
-                    </div>
+                  {/* Quick Filter Buttons */}
+                  <div className="flex items-center bg-gray-200/60 p-0.5 rounded-lg border border-gray-300/80 shadow-sm shrink-0">
+                    <button 
+                      onClick={setFilterThisMonth}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-black transition-all ${isThisMonthActive ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                      本月
+                    </button>
+                    <button 
+                      onClick={setFilterLastMonth}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-black transition-all ${isLastMonthActive ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                      上個月
+                    </button>
+                    <button 
+                      onClick={setFilterThisYear}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-black transition-all ${isThisYearActive ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                      今年
+                    </button>
                   </div>
-                )}
+                </div>
+
+                {/* Right Part: List Filters */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <Filter size={12} className="text-gray-400" />
+                    <span className="text-gray-500 font-black text-[11px]">篩選</span>
+                  </div>
+                  
+                  <select 
+                    value={listStatusFilter} 
+                    onChange={e => { setListStatusFilter(e.target.value); setSelectedEmpIds([]); }}
+                    className="bg-white border border-gray-300 rounded px-2 py-1 text-[11px] font-black text-[#1e40af] outline-none hover:border-blue-400 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <option value="ACTIVE">在職中</option>
+                    <option value="RESIGNED">已離職</option>
+                    <option value="all">不分狀態</option>
+                  </select>
+
+                  <div className="relative">
+                    <button 
+                      onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
+                      className="bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded text-[11px] font-black hover:bg-gray-50 flex items-center gap-1 shadow-sm transition-colors"
+                    >
+                      <User size={12} /> 人員選擇 {selectedEmpIds.length > 0 && <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full text-[9px] ml-0.5">{selectedEmpIds.length}</span>}
+                    </button>
+                    {isEmpDropdownOpen && (
+                      <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-gray-200 shadow-xl rounded-xl z-50 p-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-xs font-black text-gray-700">選擇人員</span>
+                          <button onClick={()=>setIsEmpDropdownOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={14}/></button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1 pr-2">
+                          <label className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer group">
+                            <input type="checkbox" checked={selectedEmpIds.length === 0} onChange={() => setSelectedEmpIds([])} className="rounded text-indigo-600 focus:ring-0" />
+                            <span className="text-xs font-bold text-gray-600 group-hover:text-indigo-600">全選所有人員</span>
+                          </label>
+                          <div className="h-px bg-gray-100 my-1" />
+                          {employees.filter(e => listStatusFilter === 'all' || e.status === listStatusFilter).map(emp => (
+                            <label key={emp.id} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer group">
+                              <input type="checkbox" checked={selectedEmpIds.includes(emp.id)} 
+                                onChange={(e) => {
+                                  if(e.target.checked) setSelectedEmpIds([...selectedEmpIds, emp.id]);
+                                  else setSelectedEmpIds(selectedEmpIds.filter(id => id !== emp.id));
+                                }} 
+                                className="rounded text-indigo-600 focus:ring-0" 
+                              />
+                              <span className="text-xs font-bold text-gray-600 group-hover:text-indigo-600">{emp.name} <span className="text-[10px] text-gray-400">({emp.code})</span></span>
+                            </label>
+                          ))}
+                        </div>
+                        <button onClick={()=>setIsEmpDropdownOpen(false)} className="w-full mt-3 bg-gray-900 text-white py-2 rounded-lg text-xs font-bold shadow-sm">確定</button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowColumnPicker(!showColumnPicker)}
+                      className="bg-white border border-gray-300 text-gray-600 px-2 py-1 rounded text-[11px] font-black hover:bg-gray-50 flex items-center gap-1 shadow-sm transition-colors"
+                    >
+                      <Settings size={12} /> 顯示欄位
+                    </button>
+                    {showColumnPicker && (
+                      <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-gray-200 shadow-xl rounded-xl z-50 p-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-xs font-black text-gray-700">自訂顯示欄位</span>
+                          <button onClick={() => setShowColumnPicker(false)} className="text-gray-300 hover:text-gray-500"><X size={14}/></button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                          {allColumns.map(col => (
+                            <label key={col.id} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded cursor-pointer transition-colors group">
+                              <input 
+                                type="checkbox"
+                                checked={visibleColumns.includes(col.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setVisibleColumns([...visibleColumns, col.id]);
+                                  else setVisibleColumns(visibleColumns.filter(id => id !== col.id));
+                                }}
+                                className="w-3 h-3 rounded border-gray-300 text-indigo-600 focus:ring-0"
+                              />
+                              <span className="text-xs font-bold text-gray-600 group-hover:text-indigo-600">{col.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Stats Bar (Simple) */}
-          {!isSelf && (
-            <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 flex items-center gap-8 text-[11px] font-bold text-gray-500">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-                本月支出預估: <span className="text-gray-900">${stats.totalNet.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                已結算人數: <span className="text-gray-900">{stats.calculatedCount} / {stats.totalEmployees}</span>
-              </div>
-              <div className="flex items-center gap-2 ml-auto">
-                {isAllFinalized ? (
-                  <button onClick={handleUnfinalize} className="text-amber-600 hover:underline flex items-center gap-1 transition-all">
-                    <Unlock size={14} /> 已鎖定 (點擊解除)
-                  </button>
-                ) : (
-                  <button onClick={handleFinalize} className="text-emerald-600 hover:underline flex items-center gap-1 transition-all">
-                    <CheckCircle size={14} /> 執行結案鎖定
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Table Area */}
           <div className="flex-1 overflow-auto border-b border-gray-200 custom-scrollbar print:hidden">
@@ -501,7 +584,7 @@ export default function Payroll() {
               <thead className="bg-[#f0f4f8] sticky top-0 z-10">
                 <tr>
                   {!isSelf && (
-                    <th className="px-4 py-2 border-r border-b border-gray-300 text-center w-12 print:hidden">
+                    <th className="px-4 py-1.5 border-r border-b border-gray-300 text-center w-12 print:hidden">
                       <input 
                         type="checkbox" 
                         checked={filteredPayrolls.length > 0 && selectedIds.length === filteredPayrolls.length} 
@@ -510,24 +593,24 @@ export default function Payroll() {
                       />
                     </th>
                   )}
-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">月份</th>
-                  {visibleColumns.includes('name') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">員工姓名</th>}
-                  {visibleColumns.includes('code') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">工號</th>}
-                  {visibleColumns.includes('department') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">部門</th>}
-                  {visibleColumns.includes('position') && <th className="px-6 py-2 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">職稱</th>}
-                  {visibleColumns.includes('total_addition') && <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">加項總額</th>}
-                  {visibleColumns.includes('total_deduction') && <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">扣項總額</th>}
-                  {visibleColumns.includes('net_salary') && <th className="px-6 py-2 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-indigo-600 uppercase tracking-tight">實發金額</th>}
-                  {visibleColumns.includes('status') && <th className="px-6 py-2 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">狀態</th>}
-                  <th className="px-6 py-2 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">確認日期</th>
-                  <th className="px-6 py-2 border-b border-gray-300 text-center text-xs md:text-sm font-black text-gray-400">操作</th>
+                  <th className="px-6 py-1.5 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">月份</th>
+                  {visibleColumns.includes('name') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">員工姓名</th>}
+                  {visibleColumns.includes('code') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">工號</th>}
+                  {visibleColumns.includes('department') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">部門</th>}
+                  {visibleColumns.includes('position') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-left text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">職稱</th>}
+                  {visibleColumns.includes('total_addition') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">加項總額</th>}
+                  {visibleColumns.includes('total_deduction') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">扣項總額</th>}
+                  {visibleColumns.includes('net_salary') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-right text-xs md:text-sm font-black text-indigo-600 uppercase tracking-tight">實發金額</th>}
+                  {visibleColumns.includes('status') && <th className="px-6 py-1.5 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">狀態</th>}
+                  <th className="px-6 py-1.5 border-r border-b border-gray-300 text-center text-xs md:text-sm font-black text-[#1e40af] uppercase tracking-tight">確認日期</th>
+                  <th className="px-6 py-1.5 border-b border-gray-300 text-center text-xs md:text-sm font-black text-gray-400">操作</th>
                 </tr>
               </thead>
               <tbody className="bg-white text-xs md:text-sm">
                 {filteredPayrolls.map((p, idx) => (
                   <tr key={p.id} className={`hover:bg-blue-50/30 transition-colors border-b border-gray-100 ${selectedRecord?.id === p.id ? 'bg-blue-50' : ''}`}>
                     {!isSelf && (
-                      <td className="px-4 py-3 border-r border-gray-200 text-center print:hidden">
+                      <td className="px-4 py-1.5 border-r border-gray-200 text-center print:hidden">
                         <input 
                           type="checkbox" 
                           checked={selectedIds.includes(p.id)} 
@@ -536,26 +619,26 @@ export default function Payroll() {
                         />
                       </td>
                     )}
-                    <td className="px-6 py-3 border-r border-gray-200 text-gray-500 font-bold">{p.year_month}</td>
+                    <td className="px-6 py-1.5 border-r border-gray-200 text-gray-500 font-bold">{p.year_month}</td>
                     {visibleColumns.includes('name') && (
-                      <td className="px-6 py-3 border-r border-gray-200 font-bold text-[#1e40af] hover:underline cursor-pointer" onClick={() => { setSelectedRecord(p); setActiveTab('details'); }}>
+                      <td className="px-6 py-1.5 border-r border-gray-200 font-bold text-[#1e40af] hover:underline cursor-pointer" onClick={() => { setSelectedRecord(p); setActiveTab('details'); }}>
                         {p.employee.name}
                       </td>
                     )}
-                    {visibleColumns.includes('code') && <td className="px-6 py-3 border-r border-gray-200 text-gray-500 font-mono">{p.employee.code}</td>}
-                    {visibleColumns.includes('department') && <td className="px-6 py-3 border-r border-gray-200 text-gray-500">{p.employee.department || '--'}</td>}
-                    {visibleColumns.includes('position') && <td className="px-6 py-3 border-r border-gray-200 text-gray-500">{p.employee.position || '--'}</td>}
-                    {visibleColumns.includes('total_addition') && <td className="px-6 py-3 border-r border-gray-200 text-right font-bold text-emerald-600">+${p.total_addition.toLocaleString()}</td>}
-                    {visibleColumns.includes('total_deduction') && <td className="px-6 py-3 border-r border-gray-200 text-right font-bold text-rose-600">-${p.total_deduction.toLocaleString()}</td>}
-                    {visibleColumns.includes('net_salary') && <td className="px-6 py-3 border-r border-gray-200 text-right text-sm font-black text-indigo-600">${p.net_salary.toLocaleString()}</td>}
+                    {visibleColumns.includes('code') && <td className="px-6 py-1.5 border-r border-gray-200 text-gray-500 font-mono">{p.employee.code}</td>}
+                    {visibleColumns.includes('department') && <td className="px-6 py-1.5 border-r border-gray-200 text-gray-500">{p.employee.department || '--'}</td>}
+                    {visibleColumns.includes('position') && <td className="px-6 py-1.5 border-r border-gray-200 text-gray-500">{p.employee.position || '--'}</td>}
+                    {visibleColumns.includes('total_addition') && <td className="px-6 py-1.5 border-r border-gray-200 text-right font-bold text-emerald-600">+${p.total_addition.toLocaleString()}</td>}
+                    {visibleColumns.includes('total_deduction') && <td className="px-6 py-1.5 border-r border-gray-200 text-right font-bold text-rose-600">-${p.total_deduction.toLocaleString()}</td>}
+                    {visibleColumns.includes('net_salary') && <td className="px-6 py-1.5 border-r border-gray-200 text-right text-sm font-black text-indigo-600">${p.net_salary.toLocaleString()}</td>}
                     {visibleColumns.includes('status') && (
-                      <td className="px-6 py-3 border-r border-gray-200 text-center">
+                      <td className="px-6 py-1.5 border-r border-gray-200 text-center">
                         <span className={`px-2 py-0.5 rounded-[4px] text-[10px] font-black uppercase shadow-sm ${p.status === 'FINALIZED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
                           {p.status === 'FINALIZED' ? '已結案' : '試算中'}
                         </span>
                       </td>
                     )}
-                    <td className="px-6 py-3 border-r border-gray-200 text-center font-bold">
+                    <td className="px-6 py-1.5 border-r border-gray-200 text-center font-bold">
                       {p.is_read ? (
                         <div className="flex flex-col items-center">
                            <span className="text-emerald-600 text-[10px] flex items-center gap-1">
@@ -567,7 +650,7 @@ export default function Payroll() {
                         <span className="text-gray-300 text-[10px]">待確認</span>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-center flex justify-center gap-1">
+                    <td className="px-6 py-1.5 text-center flex justify-center gap-1">
                       <button onClick={() => { setSelectedRecord(p); setActiveTab('details'); }} className="px-3 py-1 text-xs font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 border border-gray-200 rounded transition-all">
                         查看明細
                       </button>
