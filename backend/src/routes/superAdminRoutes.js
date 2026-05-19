@@ -10,5 +10,6 @@ router.post('/companies/:code/import', superAdminController.importCompany);
 router.get('/companies/:code/impersonate', superAdminController.impersonateCompany);
 router.post('/companies/create-admin', superAdminController.createAdmin);
 router.delete('/companies/:code', superAdminController.deleteCompany);
+router.post('/run-leave-migration', superAdminController.runLeaveSchemaMigration);
 
 module.exports = router;

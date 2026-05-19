@@ -193,3 +193,73 @@ exports.createCompany = async (req, res) => {
     res.status(500).json({ error: '註冊失敗: ' + err.message });
   }
 };
+
+/**
+ * 一次性遷移：為所有租戶 Turso DB 新增 carry-over 欄位
+ * POST /api/super-admin/run-leave-migration
+ */
+exports.runLeaveSchemaMigration = async (req, res) => {
+  const { createClient } = require('@libsql/client');
+
+  const columnsLeaveType = [
+    { name: 'is_carry_over_enabled', type: 'BOOLEAN NOT NULL DEFAULT 0' },
+    { name: 'carry_over_expiry_months', type: 'INTEGER' }
+  ];
+  const columnsLeaveQuota = [
+    { name: 'carried_over_hours', type: 'REAL NOT NULL DEFAULT 0' },
+    { name: 'annual_hours', type: 'REAL NOT NULL DEFAULT 0' }
+  ];
+
+  const results = [];
+
+  try {
+    const companies = await centralClient.company.findMany({ where: { status: 'ACTIVE' } });
+
+    for (const company of companies) {
+      const log = { code: company.code, changes: [], errors: [] };
+
+      // 若是本地 file: 路徑就跳過（本地已用 Prisma migrate 處理）
+      if (company.db_url.startsWith('file:')) {
+        log.changes.push('Skipped (local SQLite)');
+        results.push(log);
+        continue;
+      }
+
+      const tenantDb = createClient({ url: company.db_url, authToken: company.db_token });
+
+      for (const col of columnsLeaveType) {
+        try {
+          await tenantDb.execute(`ALTER TABLE "LeaveType" ADD COLUMN "${col.name}" ${col.type}`);
+          log.changes.push(`LeaveType.${col.name} added ✅`);
+        } catch (e) {
+          if (e.message.includes('duplicate column name')) {
+            log.changes.push(`LeaveType.${col.name} already exists ⚠️`);
+          } else {
+            log.errors.push(`LeaveType.${col.name}: ${e.message}`);
+          }
+        }
+      }
+
+      for (const col of columnsLeaveQuota) {
+        try {
+          await tenantDb.execute(`ALTER TABLE "LeaveQuota" ADD COLUMN "${col.name}" ${col.type}`);
+          log.changes.push(`LeaveQuota.${col.name} added ✅`);
+        } catch (e) {
+          if (e.message.includes('duplicate column name')) {
+            log.changes.push(`LeaveQuota.${col.name} already exists ⚠️`);
+          } else {
+            log.errors.push(`LeaveQuota.${col.name}: ${e.message}`);
+          }
+        }
+      }
+
+      await tenantDb.close();
+      results.push(log);
+    }
+
+    res.json({ message: '遷移完成！', results });
+  } catch (err) {
+    console.error('Migration Error:', err);
+    res.status(500).json({ error: '遷移失敗: ' + err.message, results });
+  }
+};
