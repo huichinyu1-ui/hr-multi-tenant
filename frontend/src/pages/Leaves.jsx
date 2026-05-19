@@ -23,6 +23,7 @@ export default function Leaves() {
   const [activeTab, setActiveTab] = useState('requests');
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedCalcEmpIds, setSelectedCalcEmpIds] = useState([]);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [processingOtId, setProcessingOtId] = useState(null);
@@ -192,6 +193,10 @@ export default function Leaves() {
   };
 
   const saveInlineQuota = async (q) => {
+    if (!window.confirm(`確定要手動調整員工【${q.employee?.name || '此位員工'}】的額度嗎？\n請確認數值無誤，避免影響員工權益。`)) {
+      fetchQuotas(); // 復原
+      return;
+    }
     try {
       const payload = {
         employeeId: q.employeeId,
@@ -202,6 +207,7 @@ export default function Leaves() {
         total_hours: (q.carried_over_hours || 0) + (q.annual_hours || 0)
       };
       await api.post('/leaves/quotas', payload);
+      addToast('額度調整已儲存', 'success');
       // fetchQuotas(); // optionally refetch
     } catch (e) {
       addToast('儲存額度失敗', 'error');
@@ -210,10 +216,18 @@ export default function Leaves() {
   };
 
   const handleAutoCalcQuotas = async () => {
-    if (!window.confirm('系統即將根據「歷年制」比例重新試算全體員工本年度特休（計算結果將無條件進位）。\n\n⚠️ 【重要轉換提醒】\n若貴公司今年是「首年由週年制轉換為歷年制」，系統算出的年度時數會包含「上半年」的特休額度。為避免與去年已發放的時數重複，建議您在試算完成後，自行將重複發放的時數扣除。\n\n確定要執行批次試算嗎？')) return;
+    const msg = selectedCalcEmpIds.length > 0 
+      ? `系統即將根據「歷年制」比例重新試算【選中的 ${selectedCalcEmpIds.length} 位員工】本年度特休（計算結果將無條件進位）。\n\n確定要執行批次試算嗎？`
+      : `系統即將根據「歷年制」比例重新試算【全體員工】本年度特休（計算結果將無條件進位）。\n\n⚠️ 【重要轉換提醒】\n若貴公司今年是「首年由週年制轉換為歷年制」，系統算出的年度時數會包含「上半年」的特休額度。為避免與去年已發放的時數重複，建議您在試算完成後，自行將重複發放的時數扣除。\n\n確定要執行批次試算嗎？`;
+      
+    if (!window.confirm(msg)) return;
+    
     try {
       setLoading(true);
-      await api.post('/leaves/quotas/auto', { year: new Date().getFullYear() });
+      await api.post('/leaves/quotas/auto', { 
+        year: new Date().getFullYear(),
+        employeeIds: selectedCalcEmpIds.length > 0 ? selectedCalcEmpIds : undefined
+      });
       addToast('年度額度自動試算完成！', 'success');
       fetchQuotas();
     } catch (e) {
@@ -679,6 +693,21 @@ export default function Leaves() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#f8fafc] text-[12px] font-bold text-[#1e40af] border-b border-gray-300">
+                  <th className="w-10 p-2 border-r border-gray-300 text-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-0 cursor-pointer"
+                      checked={filteredQuotas.length > 0 && selectedCalcEmpIds.length === new Set(filteredQuotas.map(q => q.employeeId)).size}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const allEmpIds = [...new Set(filteredQuotas.map(q => q.employeeId))];
+                          setSelectedCalcEmpIds(allEmpIds);
+                        } else {
+                          setSelectedCalcEmpIds([]);
+                        }
+                      }}
+                    />
+                  </th>
                   {visibleColumns.quotas?.includes('seq') && <th className="w-12 p-2 border-r border-gray-300 text-center">#</th>}
                   {visibleColumns.quotas?.includes('code') && <th className="px-4 py-2 text-left border-r border-gray-300">工號</th>}
                   {visibleColumns.quotas?.includes('name') && <th className="px-4 py-2 text-left border-r border-gray-300">員工姓名</th>}
@@ -694,6 +723,20 @@ export default function Leaves() {
               <tbody className="text-xs md:text-sm">
                 {filteredQuotas.map((q, idx) => (
                   <tr key={q.id} className="border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
+                    <td className="p-2 border-r border-gray-200 text-center">
+                      <input 
+                        type="checkbox"
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-0 cursor-pointer"
+                        checked={selectedCalcEmpIds.includes(q.employeeId)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCalcEmpIds(prev => [...prev, q.employeeId]);
+                          } else {
+                            setSelectedCalcEmpIds(prev => prev.filter(id => id !== q.employeeId));
+                          }
+                        }}
+                      />
+                    </td>
                     {visibleColumns.quotas?.includes('seq') && <td className="p-2 border-r border-gray-200 text-center text-gray-400 font-mono">{idx + 1}</td>}
                     {visibleColumns.quotas?.includes('code') && <td className="px-4 py-2 border-r border-gray-200 text-gray-500 font-mono">{q.employee.code}</td>}
                     {visibleColumns.quotas?.includes('name') && <td className="px-4 py-2 border-r border-gray-200 font-bold text-gray-700">{q.employee.name}</td>}

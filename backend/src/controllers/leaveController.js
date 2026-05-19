@@ -563,15 +563,19 @@ exports.exportLeaves = async (req, res) => {
 };
 
 exports.autoCalculateQuotas = async (req, res) => {
-  const { year } = req.body;
+  const { year, employeeIds } = req.body;
   const targetYear = year ? parseInt(year) : new Date().getFullYear();
 
   try {
-    const employees = await req.db.employee.findMany();
+    let empWhere = {};
+    if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
+      empWhere = { id: { in: employeeIds } };
+    }
+    const employees = await req.db.employee.findMany({ where: empWhere });
     const leaveTypes = await req.db.leaveType.findMany();
 
     const existingQuotas = await req.db.leaveQuota.findMany({
-      where: { year: targetYear }
+      where: { year: targetYear, ...(empWhere.id ? { employeeId: empWhere.id } : {}) }
     });
     const quotaMap = {};
     for (const q of existingQuotas) {
