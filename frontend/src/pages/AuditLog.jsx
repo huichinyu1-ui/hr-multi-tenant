@@ -11,8 +11,11 @@ const ACTION_LABELS = {
 };
 
 const TABLE_LABELS = {
-  LeaveQuota: '特休額度',
-  Employee:   '員工資料',
+  LeaveQuota:  '特休額度',
+  Employee:    '員工基本資料',
+  DailyRecord: '考勤打卡紀錄',
+  PayrollItem: '薪資項目與公式',
+  LeaveType:   '假別設定規則',
 };
 
 export default function AuditLog() {

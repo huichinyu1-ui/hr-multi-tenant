@@ -1,5 +1,6 @@
 // 移除全域 prisma
 const { evaluate } = require('mathjs');
+const { writeAuditLogBatch } = require('../services/auditService');
 
 async function validateFormula(db, formula_expr, res, currentCode) {
   if (!formula_expr) return true;
@@ -111,6 +112,11 @@ exports.updateItem = async (req, res) => {
       if (!isValid) return;
     }
     
+    // 取得舊資料以供比對
+    const oldItem = await req.db.payrollItem.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+
     // Disconnect all first, then connect the selected ones
     await req.db.payrollItem.update({
       where: { id: parseInt(req.params.id) },
@@ -136,6 +142,21 @@ exports.updateItem = async (req, res) => {
       },
       include: { applied_employees: true }
     });
+
+    if (oldItem) {
+      const newScalars = { 
+        name, type, calc_type, is_active, 
+        default_amount: default_amount ? parseFloat(default_amount) : null,
+        formula_expr: formula_expr || null,
+        is_global: is_global === undefined ? true : is_global
+      };
+      await writeAuditLogBatch(
+        req.db, req, 'UPDATE', 'PayrollItem', item.id,
+        oldItem, newScalars,
+        `更新薪資公式設定 (${item.name})`
+      );
+    }
+
     res.json(item);
   } catch (error) {
     res.status(500).json({ error: '更新項目失敗' });

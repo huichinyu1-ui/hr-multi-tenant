@@ -1,5 +1,5 @@
 // 移除全域 prisma
-const { writeAuditLog } = require('../services/auditService');
+const { writeAuditLog, writeAuditLogBatch } = require('../services/auditService');
 
 // Leave Types
 exports.getLeaveTypes = async (req, res) => {
@@ -57,6 +57,12 @@ exports.createLeaveType = async (req, res) => {
 exports.updateLeaveType = async (req, res) => {
   try {
     const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months } = req.body;
+    
+    // 取得舊資料以供比對
+    const oldType = await req.db.leaveType.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+
     const type = await req.db.leaveType.update({
       where: { id: parseInt(req.params.id) },
       data: { 
@@ -78,6 +84,25 @@ exports.updateLeaveType = async (req, res) => {
         }
       }
     });
+
+    if (oldType) {
+      const newScalars = { 
+        code, name, is_paid, quota_type, note,
+        deduction_ratio: parseFloat(deduction_ratio),
+        deduction_base: deduction_base || '{base_salary}',
+        default_days: parseFloat(default_days) || 0,
+        seniority_rules: seniority_rules || null,
+        is_all_employees: is_all_employees ?? true,
+        is_carry_over_enabled: Boolean(is_carry_over_enabled),
+        carry_over_expiry_months: carry_over_expiry_months ? parseInt(carry_over_expiry_months) : null
+      };
+      await writeAuditLogBatch(
+        req.db, req, 'UPDATE', 'LeaveType', type.id,
+        oldType, newScalars,
+        `更新假別規則設定 (${type.name})`
+      );
+    }
+
     res.json(type);
   } catch (error) {
     console.error(error);

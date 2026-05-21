@@ -1,6 +1,7 @@
 // 移除全域 prisma，改由 req.db 提供
 
 const { getSelfOnlyId } = require('../middlewares/permissionMiddleware');
+const { writeAuditLogBatch } = require('../services/auditService');
 
 exports.getAllEmployees = async (req, res) => {
   const userId = req.headers['x-user-id'];
@@ -165,6 +166,11 @@ exports.updateEmployee = async (req, res) => {
       resign_date
     } = req.body;
 
+    // 取得舊資料以供比對
+    const oldEmployee = await req.db.employee.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+
     // 自動狀態判定：如果離職日為空或在未來，則強制設為 ACTIVE (除非原本就有其他特殊狀態需求，此處預設回歸在職)
     const d = new Date();
     const taiwanTime = new Date(d.getTime() + (8 * 3600000));
@@ -232,6 +238,17 @@ exports.updateEmployee = async (req, res) => {
       data,
       include: { workShift: true, overrides: true, leaveQuotas: true }
     });
+
+    if (oldEmployee) {
+      // 過濾掉可能為 object (如 overrides, leaveQuotas) 的關聯，僅比對純量欄位
+      const { password, ...newScalars } = data;
+      await writeAuditLogBatch(
+        req.db, req, 'UPDATE', 'Employee', employee.id,
+        oldEmployee, newScalars,
+        `更新員工基本資料 (${employee.name})`
+      );
+    }
+
     res.json(employee);
   } catch (error) {
     console.error('更新員工錯誤:', error);

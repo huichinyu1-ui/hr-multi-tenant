@@ -50,8 +50,11 @@ exports.revertAuditLog = async (req, res) => {
 
     // 動態還原：將 recordId 對應的資料，還原欄位值為 oldValue
     const tableMap = {
-      LeaveQuota: req.db.leaveQuota,
-      Employee:   req.db.employee,
+      LeaveQuota:  req.db.leaveQuota,
+      Employee:    req.db.employee,
+      DailyRecord: req.db.dailyRecord,
+      PayrollItem: req.db.payrollItem,
+      LeaveType:   req.db.leaveType
     };
 
     const model = tableMap[log.tableName];
@@ -59,8 +62,27 @@ exports.revertAuditLog = async (req, res) => {
 
     // 轉換回正確的型別
     let revertValue = log.oldValue;
-    const numericFields = ['total_hours', 'annual_hours', 'carried_over_hours', 'base_salary', 'insurance_salary'];
-    if (numericFields.includes(log.fieldName)) revertValue = parseFloat(log.oldValue) || 0;
+    
+    // 數字型別
+    const numericFields = [
+      'total_hours', 'annual_hours', 'carried_over_hours', 'base_salary', 'insurance_salary',
+      'full_attendance_bonus', 'production_bonus', 'performance_bonus', 'meal_allowance', 'festival_bonus',
+      'health_dependents', 'pension_rate', 'custom_1', 'custom_2', 'custom_3', 'custom_4', 'custom_5', 'custom_6',
+      'deduction_ratio', 'default_days', 'carry_over_expiry_months', 'default_amount', 'sort_order'
+    ];
+    
+    // 布林型別 (如果原本是 boolean，寫入資料庫時變成字串 'true' 或 'false')
+    const booleanFields = [
+      'is_paid', 'is_all_employees', 'is_carry_over_enabled', 'is_active', 'is_global'
+    ];
+
+    if (numericFields.includes(log.fieldName)) {
+      revertValue = log.oldValue === 'null' ? null : (parseFloat(log.oldValue) || 0);
+    } else if (booleanFields.includes(log.fieldName)) {
+      revertValue = (log.oldValue === 'true');
+    } else if (log.oldValue === 'null') {
+      revertValue = null;
+    }
 
     await model.update({
       where: { id: parseInt(log.recordId) },

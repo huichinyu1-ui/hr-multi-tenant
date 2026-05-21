@@ -1,6 +1,7 @@
 // 移除全域 prisma
 const AttendanceParser = require('../services/AttendanceParser');
 const AttendanceMatcher = require('../services/AttendanceMatcher');
+const { writeAuditLogBatch } = require('../services/auditService');
 
 exports.uploadExcel = async (req, res) => {
   try {
@@ -220,6 +221,14 @@ exports.updateDailyRecord = async (req, res) => {
       where: { id: recordId },
       data: updateData
     });
+
+    // 寫入稽核日誌
+    await writeAuditLogBatch(
+      req.db, req, 'UPDATE', 'DailyRecord', record.id,
+      existingRecord, updateData,
+      `手動更新考勤 (${employee.name} 的 ${existingRecord.date} 紀錄)`
+    );
+
     res.json(record);
   } catch (error) {
     res.status(500).json({ error: '更新紀錄失敗' });
