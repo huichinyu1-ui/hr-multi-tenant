@@ -11,11 +11,20 @@ export default function NotificationBell({ user }) {
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      // 每 30 秒自動重新獲取一次
-      const interval = setInterval(fetchNotifications, 30000);
+      // 將自動輪詢頻率降低為每 5 分鐘 (300,000 毫秒)，大幅減少資料庫負載
+      const interval = setInterval(fetchNotifications, 300000);
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  const handleToggleDropdown = () => {
+    const nextState = !showDropdown;
+    setShowDropdown(nextState);
+    // 當使用者點開通知中心時，立刻同步最新通知，達到 UX 上「零延遲」的感受
+    if (nextState) {
+      fetchNotifications();
+    }
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -41,7 +50,7 @@ export default function NotificationBell({ user }) {
   return (
     <div className="relative">
       <button 
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={handleToggleDropdown}
         className="relative p-2 text-indigo-100 hover:text-white transition-colors"
       >
         <Bell className="w-6 h-6" />

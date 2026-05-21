@@ -37,4 +37,9 @@
     - [ ] 對接 Gemini 進行財報法說會亮點提煉與新聞多空溫度計分析。
 
 ---
-*最後更新時間：2026-05-18*
+## 家庭記帳開發 (Family Expense Tracker)
+- **Vercel 帳號**: huichinyu1@gmail.com
+- **GitHub 帳號**: huichinyu1@gmail.com
+
+---
+*最後更新時間：2026-05-20*
