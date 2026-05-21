@@ -1,4 +1,5 @@
 // 移除全域 prisma
+const { writeAuditLog } = require('../services/auditService');
 
 // Leave Types
 exports.getLeaveTypes = async (req, res) => {
@@ -333,6 +334,18 @@ exports.updateLeaveQuota = async (req, res) => {
     const aHours = parseFloat(annual_hours) || 0;
     const tHours = cHours + aHours || parseFloat(total_hours) || 0;
 
+    // 建立前先查詢舊值，供日誌記錄
+    const existing = await req.db.leaveQuota.findUnique({
+      where: {
+        employeeId_leaveTypeId_year: {
+          employeeId: parseInt(employeeId),
+          leaveTypeId: parseInt(leaveTypeId),
+          year: parseInt(year)
+        }
+      }
+    });
+    const oldTotalHours = existing?.total_hours ?? null;
+
     const quota = await req.db.leaveQuota.upsert({
       where: {
         employeeId_leaveTypeId_year: {
@@ -351,6 +364,21 @@ exports.updateLeaveQuota = async (req, res) => {
         annual_hours: aHours
       }
     });
+
+    // 寫入稽核日誌（僅在有變動時記錄）
+    if (oldTotalHours === null || oldTotalHours !== tHours) {
+      await writeAuditLog(
+        req.db, req,
+        existing ? 'UPDATE' : 'CREATE',
+        'LeaveQuota',
+        quota.id,
+        'total_hours',
+        oldTotalHours ?? 0,
+        tHours,
+        `員工 ${employeeId} 的 ${year} 年度特休額度手動調整`
+      );
+    }
+
     res.json(quota);
   } catch (error) {
     res.status(500).json({ error: '設定額度失敗' });

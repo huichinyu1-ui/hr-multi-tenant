@@ -266,6 +266,23 @@ model Notification {
   @@index([employeeId, is_read, created_at])
 }
 
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  operatorId    Int      // 執行操作的員工 ID
+  operatorName  String   // 操作當時的姓名（避免改名後查不到）
+  action        String   // UPDATE / CREATE / DELETE
+  tableName     String   // 例如 "LeaveQuota" / "Employee"
+  recordId      Int      // 被異動的資料筆 ID
+  fieldName     String   // 被異動的欄位名稱
+  oldValue      String   // 異動前的值（字串）
+  newValue      String   // 異動後的值（字串）
+  note          String?  // 備註說明
+  created_at    DateTime @default(now())
+
+  @@index([tableName, recordId])
+  @@index([operatorId, created_at])
+}
+
 model MissedPunchRequest {
   id           Int      @id @default(autoincrement())
   employeeId   Int

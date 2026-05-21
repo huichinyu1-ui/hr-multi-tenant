@@ -48,6 +48,7 @@ const overtimeRoutes = require('./routes/overtimeRoutes');
 const insuranceRoutes = require('./routes/insuranceRoutes');
 const insuranceVersionRoutes = require('./routes/insuranceVersionRoutes');
 const webAuthnRoutes = require('./routes/webAuthnRoutes');
+const auditRoutes = require('./routes/auditRoutes');
 
 // 路由設定
 app.use('/api/employees', employeeRoutes);
@@ -65,6 +66,7 @@ app.use('/api/overtime', overtimeRoutes);
 app.use('/api/insurance', insuranceRoutes);
 app.use('/api/insurance-versions', insuranceVersionRoutes);
 app.use('/api/webauthn', webAuthnRoutes);
+app.use('/api/audit-logs', auditRoutes);
 
 // 基本檢查
 app.get('/api/health', (req, res) => {
