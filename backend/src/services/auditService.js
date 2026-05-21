@@ -73,21 +73,27 @@ exports.writeAuditLogBatch = async (db, req, action, tableName, recordId, oldDat
 
     if (changedFields.length === 0) return;
 
-    await Promise.all(changedFields.map(field =>
-      db.auditLog.create({
-        data: {
-          operatorId,
-          operatorName,
-          action,
-          tableName,
-          recordId:  parseInt(recordId) || 0,
-          fieldName: field,
-          oldValue:  String(oldData[field] ?? ''),
-          newValue:  String(newData[field] ?? ''),
-          note,
-        }
-      })
-    ));
+    // 將有變動的欄位打包成一個 JSON 物件
+    const oldValuesObj = {};
+    const newValuesObj = {};
+    changedFields.forEach(field => {
+      oldValuesObj[field] = String(oldData[field] ?? '');
+      newValuesObj[field] = String(newData[field] ?? '');
+    });
+
+    await db.auditLog.create({
+      data: {
+        operatorId,
+        operatorName,
+        action,
+        tableName,
+        recordId:  parseInt(recordId) || 0,
+        fieldName: 'MULTIPLE_FIELDS',
+        oldValue:  JSON.stringify(oldValuesObj),
+        newValue:  JSON.stringify(newValuesObj),
+        note,
+      }
+    });
   } catch (err) {
     console.warn('[AuditService] 批次寫入日誌失敗（靜默忽略）：', err.message);
   }

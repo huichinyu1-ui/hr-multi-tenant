@@ -61,9 +61,6 @@ exports.revertAuditLog = async (req, res) => {
     if (!model) return res.status(400).json({ error: `資料表 "${log.tableName}" 目前不支援自動還原` });
 
     // 轉換回正確的型別
-    let revertValue = log.oldValue;
-    
-    // 數字型別
     const numericFields = [
       'total_hours', 'annual_hours', 'carried_over_hours', 'base_salary', 'insurance_salary',
       'full_attendance_bonus', 'production_bonus', 'performance_bonus', 'meal_allowance', 'festival_bonus',
@@ -71,22 +68,45 @@ exports.revertAuditLog = async (req, res) => {
       'deduction_ratio', 'default_days', 'carry_over_expiry_months', 'default_amount', 'sort_order'
     ];
     
-    // 布林型別 (如果原本是 boolean，寫入資料庫時變成字串 'true' 或 'false')
     const booleanFields = [
       'is_paid', 'is_all_employees', 'is_carry_over_enabled', 'is_active', 'is_global'
     ];
 
-    if (numericFields.includes(log.fieldName)) {
-      revertValue = log.oldValue === 'null' ? null : (parseFloat(log.oldValue) || 0);
-    } else if (booleanFields.includes(log.fieldName)) {
-      revertValue = (log.oldValue === 'true');
-    } else if (log.oldValue === 'null') {
-      revertValue = null;
+    const updateData = {};
+    
+    if (log.fieldName === 'MULTIPLE_FIELDS') {
+      try {
+        const parsedOldValues = JSON.parse(log.oldValue);
+        for (const [key, value] of Object.entries(parsedOldValues)) {
+          if (numericFields.includes(key)) {
+            updateData[key] = value === 'null' ? null : (parseFloat(value) || 0);
+          } else if (booleanFields.includes(key)) {
+            updateData[key] = (value === 'true');
+          } else if (value === 'null') {
+            updateData[key] = null;
+          } else {
+            updateData[key] = value;
+          }
+        }
+      } catch (e) {
+        return res.status(400).json({ error: '無法解析日誌的多欄位資料，還原失敗' });
+      }
+    } else {
+      // 舊版單一欄位還原相容
+      let revertValue = log.oldValue;
+      if (numericFields.includes(log.fieldName)) {
+        revertValue = log.oldValue === 'null' ? null : (parseFloat(log.oldValue) || 0);
+      } else if (booleanFields.includes(log.fieldName)) {
+        revertValue = (log.oldValue === 'true');
+      } else if (log.oldValue === 'null') {
+        revertValue = null;
+      }
+      updateData[log.fieldName] = revertValue;
     }
 
     await model.update({
       where: { id: parseInt(log.recordId) },
-      data:  { [log.fieldName]: revertValue }
+      data:  updateData
     });
 
     // 寫入「還原操作」的日誌，確保完整稽核鏈
