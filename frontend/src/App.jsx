@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, NavLink as RouterNavLink } from 'react-router-dom';
-import { Users, FileSpreadsheet, Calculator, Settings as SettingsIcon, Menu, Clock, X, LogOut, Key, Shield, ShieldCheck, Wallet, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, FileSpreadsheet, Calculator, Settings as SettingsIcon, Menu, Clock, X, LogOut, Key, Shield, ShieldCheck, Wallet, ChevronDown, ChevronRight, History } from 'lucide-react';
 
 import Employees from './pages/Employees';
 import Attendance from './pages/Attendance';
@@ -12,6 +12,7 @@ import LeaveTypes from './pages/LeaveTypes';
 import Shifts from './pages/Shifts';
 import MissedPunches from './pages/MissedPunches';
 import Roles from './pages/Roles';
+import AuditLog from './pages/AuditLog';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import InsuranceGrades from './pages/InsuranceGrades';
@@ -117,6 +118,7 @@ function App() {
   const canViewPayroll = hasPermission('PAYROLL', 'canView') || hasPermission('PAYROLL', 'selfOnly');
   const canViewInsurance = hasPermission('INSURANCE', 'canView') || hasPermission('INSURANCE', 'selfOnly');
   const canManageSettings = hasPermission('SETTINGS', 'canManageSettings');
+  const canViewAuditLog = hasPermission('AUDIT', 'canView');
 
   const companyCode = sessionStorage.getItem('companyCode') || localStorage.getItem('companyCode');
   api.defaults.headers.common['x-company-code'] = companyCode;
@@ -191,6 +193,7 @@ function App() {
       <NavSection title="系統權限">
         {canManageSettings && <NavLink to="/settings" icon={SettingsIcon}>系統環境設定</NavLink>}
         {isAdmin && <NavLink to="/roles" icon={Shield}>角色與權限管理</NavLink>}
+        {canViewAuditLog && <NavLink to="/audit-log" icon={History}>系統操作日誌</NavLink>}
       </NavSection>
 
       {/* 薪資結算 - 置底凸顯區 */}
@@ -345,6 +348,7 @@ function App() {
                 <Route path="/insurance-grades" element={<InsuranceGrades />} />
                 <Route path="/settings" element={canManageSettings ? <Settings /> : <Dashboard />} />
                 <Route path="/roles" element={isAdmin ? <Roles /> : <Dashboard />} />
+                <Route path="/audit-log" element={canViewAuditLog ? <AuditLog /> : <Dashboard />} />
                 <Route path="*" element={<Dashboard />} />
               </Routes>
             </div>
