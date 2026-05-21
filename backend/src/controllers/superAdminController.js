@@ -263,3 +263,62 @@ exports.runLeaveSchemaMigration = async (req, res) => {
     res.status(500).json({ error: '遷移失敗: ' + err.message, results });
   }
 };
+
+/**
+ * 一次性遷移：為所有租戶 Turso DB 建立 AuditLog 資料表
+ * POST /api/super-admin/run-audit-migration
+ */
+exports.runAuditLogMigration = async (req, res) => {
+  const { createClient } = require('@libsql/client');
+  const results = [];
+
+  try {
+    const companies = await centralClient.company.findMany({ where: { status: 'ACTIVE' } });
+
+    for (const company of companies) {
+      const log = { code: company.code, changes: [], errors: [] };
+
+      if (company.db_url.startsWith('file:')) {
+        log.changes.push('Skipped (local SQLite - managed by Prisma migrate)');
+        results.push(log);
+        continue;
+      }
+
+      const tenantDb = createClient({ url: company.db_url, authToken: company.db_token });
+
+      try {
+        await tenantDb.execute(`
+          CREATE TABLE IF NOT EXISTS "AuditLog" (
+            "id"           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            "operatorId"   INTEGER NOT NULL DEFAULT 0,
+            "operatorName" TEXT    NOT NULL DEFAULT '',
+            "action"       TEXT    NOT NULL,
+            "tableName"    TEXT    NOT NULL,
+            "recordId"     INTEGER NOT NULL DEFAULT 0,
+            "fieldName"    TEXT    NOT NULL,
+            "oldValue"     TEXT    NOT NULL DEFAULT '',
+            "newValue"     TEXT    NOT NULL DEFAULT '',
+            "note"         TEXT,
+            "created_at"   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        log.changes.push('AuditLog table created \u2705');
+
+        // 建立索引加速查詢
+        await tenantDb.execute(`CREATE INDEX IF NOT EXISTS "AuditLog_tableName_recordId" ON "AuditLog" ("tableName", "recordId")`);
+        await tenantDb.execute(`CREATE INDEX IF NOT EXISTS "AuditLog_operatorId_created_at" ON "AuditLog" ("operatorId", "created_at")`);
+        log.changes.push('AuditLog indexes created \u2705');
+      } catch (e) {
+        log.errors.push('AuditLog: ' + e.message);
+      }
+
+      await tenantDb.close();
+      results.push(log);
+    }
+
+    res.json({ message: 'AuditLog 遷移完成！', results });
+  } catch (err) {
+    console.error('[AuditLog Migration] Error:', err);
+    res.status(500).json({ error: '遷移失敗: ' + err.message, results });
+  }
+};
