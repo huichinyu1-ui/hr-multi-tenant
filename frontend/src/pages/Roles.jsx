@@ -15,6 +15,7 @@ const MODULE_LABELS = {
   FORMULA:      { name: '薪資公式設定', desc: '定義薪資明細項目的加扣項邏輯與計算公式。' },
   SETTINGS:     { name: '系統環境設定', desc: '管理公司 GPS 座標、打卡允許半徑與其他全域系統參數。' },
   INSURANCE:    { name: '保費級距管理', desc: '管理勞保、健保與勞退的投保薪資分級與自提比例。' },
+  AUDIT:        { name: '系統操作日誌', desc: '查看所有管理員對系統資料的修改日誌。\n• 查看 = 可進入「操作日誌」頁面查閱紀錄\n• 編輯 = 解鎖「一鍵還原資料」功能（極度高風險）' },
 };
 
 const PERM_COLS = [
@@ -315,8 +316,13 @@ export default function Roles() {
                                   {module === 'SETTINGS' && (
                                     <label title="是否能管理全公司的系統參數(如打卡座標)" className="flex items-center gap-1.5 cursor-help hover:text-indigo-600"><input type="checkbox" checked={!!mp.canManageSettings} onChange={e => handlePermChange(role.id, module, 'canManageSettings', e.target.checked)} className="rounded border-gray-300 text-indigo-600" /> 管理系統參數 <Info size={11} className="text-gray-400" /></label>
                                   )}
-                                  {!(module === 'EMP' || module === 'LEAVE' || module === 'MISSED_PUNCH' || module === 'ATT' || module === 'SETTINGS') && (
+                                  {!(module === 'EMP' || module === 'LEAVE' || module === 'MISSED_PUNCH' || module === 'ATT' || module === 'SETTINGS' || module === 'AUDIT') && (
                                     <span className="text-[10px] text-gray-300 italic">無特製項目</span>
+                                  )}
+                                  {module === 'AUDIT' && (
+                                    <span className="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">
+                                      ✏️ 編輯 = 解鎖「一鍵還原」危險操作
+                                    </span>
                                   )}
                                 </div>
                               </td>
@@ -406,6 +412,13 @@ export default function Roles() {
               <span className="font-bold text-gray-700">查看 + 僅本人</span>：只能看自己的打卡紀錄，隱藏人員篩選。<br/>
               <span className="font-bold text-gray-700">編輯</span>：可手動調整每日考勤狀態 + 執行一鍵同步。<br/>
               <span className="font-bold text-gray-700">新增</span>：保留欄位，漏打卡請統一走「補打卡申請」功能。
+            </div>
+          </div>
+          <div className="bg-white border border-red-200 rounded-xl px-3 py-2.5">
+            <div className="text-xs font-black text-red-600 mb-1">【系統操作日誌】一鍵還原權限</div>
+            <div className="text-[10px] text-gray-500 leading-relaxed">
+              <span className="font-bold text-gray-700">查看</span>：可進入「系統操作日誌」頁面，查閱資料變更紀錄。<br/>
+              <span className="font-bold text-red-600">編輯（極度高風险）</span>：解鎖「一鍵還原資料」按鈕。建議僅授權給最高級管理帳號。
             </div>
           </div>
         </div>

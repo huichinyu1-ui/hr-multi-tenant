@@ -11,6 +11,7 @@ const ALL_MODULES = [
   { code: 'FORMULA',      name: '薪資公式設定' },
   { code: 'SETTINGS',     name: '系統環境設定' },
   { code: 'INSURANCE',    name: '保費級距管理' },
+  { code: 'AUDIT',        name: '系統操作日誌' },
 ];
 
 // 預設系統角色定義
