@@ -110,3 +110,27 @@ exports.revertAuditLog = async (req, res) => {
     res.status(500).json({ error: '還原操作失敗：' + error.message });
   }
 };
+
+// 批次刪除操作日誌（需 AUDIT canDelete 權限）
+exports.deleteAuditLogs = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '請提供要刪除的日誌 IDs' });
+    }
+
+    const deleteIds = ids.map(id => parseInt(id)).filter(id => !isNaN(id));
+    
+    // 使用 queryRawUnsafe 來相容舊版
+    if (deleteIds.length > 0) {
+      await req.db.$executeRawUnsafe(
+        `DELETE FROM "AuditLog" WHERE id IN (${deleteIds.join(',')})`
+      );
+    }
+    
+    res.json({ message: `成功刪除 ${deleteIds.length} 筆日誌紀錄` });
+  } catch (error) {
+    console.error('[Audit] deleteAuditLogs error:', error);
+    res.status(500).json({ error: '刪除操作日誌失敗' });
+  }
+};

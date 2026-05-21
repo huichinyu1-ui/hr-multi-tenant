@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { History, RotateCcw, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { History, RotateCcw, ChevronLeft, ChevronRight, AlertTriangle, Trash2, CheckSquare } from 'lucide-react';
 import api from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermission } from '../contexts/PermissionContext';
@@ -22,15 +22,21 @@ export default function AuditLog() {
   const { addToast } = useToast();
   const { hasPermission } = usePermission();
   const canRevert = hasPermission('AUDIT', 'canEdit');
+  const canDelete = hasPermission('AUDIT', 'canDelete');
 
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [reverting, setReverting] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
   const limit = 30;
 
-  useEffect(() => { fetchLogs(); }, [page]);
+  useEffect(() => { 
+    fetchLogs(); 
+    setSelectedIds([]); // 換頁時清空選取
+  }, [page]);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -66,6 +72,39 @@ export default function AuditLog() {
     }
   };
 
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`⚠️ 確定要永久刪除選取的 ${selectedIds.length} 筆紀錄嗎？\n此操作無法復原！`)) return;
+
+    setDeleting(true);
+    try {
+      const res = await api.post('/audit-logs/batch-delete', { ids: selectedIds });
+      addToast(res.data.message, 'success');
+      setSelectedIds([]);
+      fetchLogs();
+    } catch (e) {
+      addToast('刪除失敗：' + (e.response?.data?.error || e.message), 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === logs.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(logs.map(log => log.id));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(sid => sid !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -86,6 +125,23 @@ export default function AuditLog() {
         )}
       </div>
 
+      {canDelete && selectedIds.length > 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 text-rose-700">
+            <CheckSquare size={16} />
+            <span className="text-sm font-bold">已選取 {selectedIds.length} 筆紀錄</span>
+          </div>
+          <button 
+            onClick={handleBatchDelete}
+            disabled={deleting}
+            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
+          >
+            {deleting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 size={16} />}
+            永久刪除
+          </button>
+        </div>
+      )}
+
       {/* 日誌列表 */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
@@ -102,13 +158,23 @@ export default function AuditLog() {
         ) : (
           <div className="divide-y divide-gray-50">
             {/* 表頭 */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              <div className="col-span-2">時間</div>
+            <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest items-center">
+              {canDelete && (
+                <div className="col-span-1">
+                  <input 
+                    type="checkbox" 
+                    checked={logs.length > 0 && selectedIds.length === logs.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                  />
+                </div>
+              )}
+              <div className={canDelete ? "col-span-2" : "col-span-2"}>時間</div>
               <div className="col-span-1">操作</div>
               <div className="col-span-2">操作人</div>
               <div className="col-span-2">資料表</div>
               <div className="col-span-2">欄位</div>
-              <div className="col-span-2">舊值 → 新值</div>
+              <div className={canDelete ? "col-span-1" : "col-span-2"}>舊值 → 新值</div>
               {canRevert && <div className="col-span-1 text-right">還原</div>}
             </div>
 
@@ -121,8 +187,20 @@ export default function AuditLog() {
                   key={log.id}
                   className={`grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors items-center ${isRevertLog ? 'bg-blue-50/30' : ''}`}
                 >
+                  {/* Checkbox */}
+                  {canDelete && (
+                    <div className="col-span-1">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(log.id)}
+                        onChange={() => toggleSelect(log.id)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                      />
+                    </div>
+                  )}
+
                   {/* 時間 */}
-                  <div className="col-span-2 text-xs text-gray-500">
+                  <div className={canDelete ? "col-span-2 text-xs text-gray-500" : "col-span-2 text-xs text-gray-500"}>
                     <p className="font-bold text-gray-700">{new Date(log.created_at).toLocaleDateString('zh-TW')}</p>
                     <p className="text-gray-400">{new Date(log.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
@@ -152,10 +230,10 @@ export default function AuditLog() {
                   </div>
 
                   {/* 舊值 → 新值 */}
-                  <div className="col-span-2 text-xs flex items-center gap-1 truncate">
-                    <span className="text-red-500 line-through">{log.oldValue}</span>
+                  <div className={`${canDelete ? "col-span-1" : "col-span-2"} text-xs flex items-center gap-1 truncate`}>
+                    <span className="text-red-500 line-through truncate max-w-[60px]">{String(log.oldValue)}</span>
                     <span className="text-gray-300">→</span>
-                    <span className="text-emerald-600 font-bold">{log.newValue}</span>
+                    <span className="text-emerald-600 font-bold truncate max-w-[60px]">{String(log.newValue)}</span>
                   </div>
 
                   {/* 還原按鈕 */}
