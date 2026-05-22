@@ -24,6 +24,7 @@ export default function Employees() {
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [editingMetadata, setEditingMetadata] = useState(null);
   const [metadataForm, setMetadataForm] = useState({ type: 'DEPARTMENT', label: '', value: '' });
+  const [saving, setSaving] = useState(false); // 防呆機制：儲存中狀態
   
   const { hasPermission, isAdmin, isSelfOnly } = usePermission();
   const canEdit = hasPermission('EMP', 'canEdit');
@@ -155,6 +156,8 @@ export default function Employees() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return; // 防呆：如果正在儲存中，直接阻擋
+    setSaving(true);
     try {
       const payload = { ...form };
       if (editingId) {
@@ -168,6 +171,8 @@ export default function Employees() {
       fetchEmployees();
     } catch (e) { 
       addToast(e.response?.data?.error || '儲存失敗', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -981,14 +986,17 @@ export default function Employees() {
               <button 
                 type="submit" 
                 form="empForm"
-                className="bg-[#1e40af] text-white px-8 py-2 rounded text-sm font-black shadow hover:bg-blue-800 transition-all"
+                disabled={saving}
+                className={`bg-[#1e40af] text-white px-8 py-2 rounded text-sm font-black shadow transition-all flex items-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-800'}`}
               >
-                儲存(F2)
+                {saving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {saving ? '儲存中...' : '儲存(F2)'}
               </button>
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}
-                className="bg-white border border-gray-300 text-gray-600 px-8 py-2 rounded text-sm font-bold hover:bg-gray-50 transition-all"
+                disabled={saving}
+                className={`bg-white border border-gray-300 text-gray-600 px-8 py-2 rounded text-sm font-bold transition-all ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
               >
                 取消
               </button>
