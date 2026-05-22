@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { History, RotateCcw, ChevronLeft, ChevronRight, AlertTriangle, Trash2, CheckSquare } from "lucide-react";
 import api from "../utils/api";
 import { useToast } from "../contexts/ToastContext";
@@ -175,7 +175,14 @@ export default function AuditLog() {
                     {log.operatorName || "#" + log.operatorId}
                     {isRevertLog && <span className="ml-1 text-[9px] text-blue-500 font-black">[還原操作]</span>}
                   </div>
-                  <div className="col-span-2 text-xs text-gray-600">{TABLE_LABELS[log.tableName] || log.tableName}<span className="text-gray-400 ml-1">#{log.recordId}</span></div>
+                  <div className="col-span-2 text-xs text-gray-600">
+                    <div>{TABLE_LABELS[log.tableName] || log.tableName}<span className="text-gray-400 ml-1">#{log.recordId}</span></div>
+                    {log.note && !isRevertLog && (
+                      <div className="mt-1 text-[10px] text-indigo-500 font-bold bg-indigo-50/80 border border-indigo-100 px-1.5 py-0.5 rounded w-fit truncate" title={log.note}>
+                        💡 {log.note}
+                      </div>
+                    )}
+                  </div>
                   <div className="col-span-2 text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded truncate">{log.fieldName === "MULTIPLE_FIELDS" ? "多欄位變更" : log.fieldName}</div>
                   <ValuesCell log={log} compact={canDelete} />
                   {canRevert && (

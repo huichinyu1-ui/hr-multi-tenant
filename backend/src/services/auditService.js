@@ -15,6 +15,33 @@ const safeStringify = (val) => {
   return String(val);
 };
 
+const generateAutoNote = async (db, action, tableName, recordId, originalNote) => {
+  if (originalNote) return originalNote;
+  if (!db || !recordId) return originalNote;
+  try {
+    const actStr = action === 'DELETE' ? '刪除' : (action === 'CREATE' ? '新增' : '修改');
+    if (tableName === 'Employee' && db.employee) {
+      const emp = await db.employee.findUnique({ where: { id: parseInt(recordId) } });
+      if (emp) return `${actStr}員工 [${emp.name}] 的資料`;
+    } else if (tableName === 'LeaveRequest' && db.leaveRequest) {
+      const lr = await db.leaveRequest.findUnique({ where: { id: parseInt(recordId) }, include: { employee: true } });
+      if (lr) return `${actStr} [${lr.employee?.name || '未知'}] 的請假單`;
+    } else if (tableName === 'OvertimeRequest' && db.overtimeRequest) {
+      const ot = await db.overtimeRequest.findUnique({ where: { id: parseInt(recordId) }, include: { employee: true } });
+      if (ot) return `${actStr} [${ot.employee?.name || '未知'}] 的加班單`;
+    } else if (tableName === 'Attendance' && db.attendance) {
+      const att = await db.attendance.findUnique({ where: { id: parseInt(recordId) }, include: { employee: true } });
+      if (att) return `${actStr} [${att.employee?.name || '未知'}] ${att.date} 的考勤紀錄`;
+    } else if (tableName === 'LeaveQuota' && db.leaveQuota) {
+      const q = await db.leaveQuota.findUnique({ where: { id: parseInt(recordId) }, include: { employee: true, leaveType: true } });
+      if (q) return `${actStr} [${q.employee?.name || '未知'}] 的 [${q.leaveType?.name || '特休'}] 額度`;
+    }
+  } catch (e) {
+    // 查詢失敗靜默忽略，保留原狀
+  }
+  return originalNote;
+};
+
 /**
  * 寫入一筆操作日誌
  * @param {object} db         - req.db (租戶資料庫連線)
@@ -42,6 +69,8 @@ exports.writeAuditLog = async (db, req, action, tableName, recordId, fieldName, 
     // 若無 AuditLog 資料表（尚未做雲端 Migration），靜默跳過
     if (!db.auditLog) return;
 
+    const finalNote = await generateAutoNote(db, action, tableName, recordId, note);
+
     await db.auditLog.create({
       data: {
         operatorId,
@@ -52,7 +81,7 @@ exports.writeAuditLog = async (db, req, action, tableName, recordId, fieldName, 
         fieldName,
         oldValue:  safeStringify(oldValue),
         newValue:  safeStringify(newValue),
-        note,
+        note: finalNote,
       }
     });
   } catch (err) {
@@ -93,6 +122,8 @@ exports.writeAuditLogBatch = async (db, req, action, tableName, recordId, oldDat
 
     if (changedFields.length === 0) return;
 
+    const finalNote = await generateAutoNote(db, action, tableName, recordId, note);
+
     // 將有變動的欄位打包成一個 JSON 物件
     const oldValuesObj = {};
     const newValuesObj = {};
@@ -111,7 +142,7 @@ exports.writeAuditLogBatch = async (db, req, action, tableName, recordId, oldDat
         fieldName: 'MULTIPLE_FIELDS',
         oldValue:  JSON.stringify(oldValuesObj),
         newValue:  JSON.stringify(newValuesObj),
-        note,
+        note: finalNote,
       }
     });
   } catch (err) {
