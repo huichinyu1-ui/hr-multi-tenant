@@ -24,7 +24,14 @@
 exports.writeAuditLog = async (db, req, action, tableName, recordId, fieldName, oldValue, newValue, note = null) => {
   try {
     const operatorId   = parseInt(req.headers['x-user-id'])   || 0;
-    const operatorName = req.headers['x-user-name']            || '系統';
+    let operatorName = '系統';
+    if (req.headers['x-user-name']) {
+      try {
+        operatorName = decodeURIComponent(req.headers['x-user-name']) || '系統';
+      } catch (e) {
+        operatorName = req.headers['x-user-name'];
+      }
+    }
 
     // 若無 AuditLog 資料表（尚未做雲端 Migration），靜默跳過
     if (!db.auditLog) return;
@@ -62,7 +69,14 @@ exports.writeAuditLog = async (db, req, action, tableName, recordId, fieldName, 
 exports.writeAuditLogBatch = async (db, req, action, tableName, recordId, oldData, newData, note = null) => {
   try {
     const operatorId   = parseInt(req.headers['x-user-id'])   || 0;
-    const operatorName = req.headers['x-user-name']            || '系統';
+    let operatorName = '系統';
+    if (req.headers['x-user-name']) {
+      try {
+        operatorName = decodeURIComponent(req.headers['x-user-name']) || '系統';
+      } catch (e) {
+        operatorName = req.headers['x-user-name'];
+      }
+    }
 
     if (!db.auditLog) return;
 

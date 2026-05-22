@@ -26,6 +26,8 @@ api.interceptors.request.use(config => {
     const user = JSON.parse(userStr);
     config.headers['x-user-role'] = user.role;
     config.headers['x-user-id'] = user.id;
+    // 使用 encodeURIComponent 避免中文名字在 HTTP Header 中傳輸錯誤
+    config.headers['x-user-name'] = encodeURIComponent(user.name || user.username || '');
   }
   const companyCode = sessionStorage.getItem('companyCode') || localStorage.getItem('companyCode');
   if (companyCode) {
