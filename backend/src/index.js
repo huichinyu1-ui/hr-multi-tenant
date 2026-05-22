@@ -12,7 +12,7 @@ const corsOptions = {
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type', 'Authorization',
-    'x-user-id', 'x-user-role', 'x-company-code',
+    'x-user-id', 'x-user-role', 'x-company-code', 'x-user-name',
     'X-Requested-With', 'Accept'
   ],
   credentials: false,
