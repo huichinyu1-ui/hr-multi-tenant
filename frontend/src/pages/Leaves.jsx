@@ -752,7 +752,16 @@ export default function Leaves() {
                     {visibleColumns.quotas?.includes('seq') && <td className="p-2 border-r border-gray-200 text-center text-gray-400 font-mono">{idx + 1}</td>}
                     {visibleColumns.quotas?.includes('code') && <td className="px-4 py-2 border-r border-gray-200 text-gray-500 font-mono">{q.employee.code}</td>}
                     {visibleColumns.quotas?.includes('name') && <td className="px-4 py-2 border-r border-gray-200 font-bold text-gray-700">{q.employee.name}</td>}
-                    {visibleColumns.quotas?.includes('leave_type') && <td className="px-4 py-2 border-r border-gray-200 font-bold text-[#1e40af]">{q.leaveType.name}</td>}
+                    {visibleColumns.quotas?.includes('leave_type') && (
+                      <td className="px-4 py-2 border-r border-gray-200 font-bold text-[#1e40af]">
+                        <div>{q.leaveType.name}</div>
+                        {q.valid_from && q.valid_to && (
+                          <div className="text-[10px] text-gray-400 font-mono mt-0.5 whitespace-nowrap">
+                            有效: {q.valid_from} ~ {q.valid_to}
+                          </div>
+                        )}
+                      </td>
+                    )}
                     
                     {visibleColumns.quotas?.includes('carried_over') && (
                       <td className="px-2 py-1 border-r border-gray-200 text-center bg-orange-50/20">
