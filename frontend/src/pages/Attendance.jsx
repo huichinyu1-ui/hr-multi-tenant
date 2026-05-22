@@ -188,16 +188,16 @@ export default function Attendance() {
     } catch (e) { alert('更新失敗'); }
   };
 
-  const handleTimeChange = async (id, field, value) => {
+  const handleTimeChange = async (id, field, value, originalValue, e) => {
     const fieldLabel = field === 'clock_in' ? '上班時間' : '下班時間';
     if (!window.confirm(`確定要將此員工的${fieldLabel}修改為 ${value || '空值'} 嗎？`)) {
-      fetchRecords(); // 重新載入以還原 UI 輸入框的值
+      if (e && e.target) e.target.value = originalValue || ''; // 復原畫面
       return;
     }
     try {
       await api.put(`/attendances/${id}`, { [field]: value || null });
       fetchRecords();
-    } catch (e) { 
+    } catch (err) { 
       alert('更新時間失敗'); 
       fetchRecords();
     }
@@ -569,7 +569,7 @@ export default function Attendance() {
                               defaultValue={r.clock_in || ''}
                               onBlur={e => {
                                 if (e.target.value !== (r.clock_in || '')) {
-                                  handleTimeChange(r.id, 'clock_in', e.target.value);
+                                  handleTimeChange(r.id, 'clock_in', e.target.value, r.clock_in, e);
                                 }
                               }}
                               className="bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"
@@ -580,7 +580,7 @@ export default function Attendance() {
                               defaultValue={r.clock_out || ''}
                               onBlur={e => {
                                 if (e.target.value !== (r.clock_out || '')) {
-                                  handleTimeChange(r.id, 'clock_out', e.target.value);
+                                  handleTimeChange(r.id, 'clock_out', e.target.value, r.clock_out, e);
                                 }
                               }}
                               className="bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"

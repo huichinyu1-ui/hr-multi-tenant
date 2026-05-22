@@ -271,13 +271,13 @@ export default function Leaves() {
           employeeId: q.employeeId,
           leaveTypeId: q.leaveTypeId,
           year: q.year,
-          carried_over_hours: q.carried_over_hours || 0,
-          annual_hours: q.annual_hours || 0,
-          total_hours: (q.carried_over_hours || 0) + (q.annual_hours || 0)
+          carried_over_hours: parseFloat(q.carried_over_hours) || 0,
+          annual_hours: parseFloat(q.annual_hours) || 0,
+          total_hours: (parseFloat(q.carried_over_hours) || 0) + (parseFloat(q.annual_hours) || 0)
         };
         await api.post('/leaves/quotas', payload);
         addToast('額度調整已儲存', 'success');
-        // fetchQuotas(); // optionally refetch
+        fetchQuotas(); // 更新畫面狀態
       } catch (e) {
         addToast('儲存額度失敗', 'error');
         fetchQuotas();
