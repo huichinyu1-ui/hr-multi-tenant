@@ -112,9 +112,14 @@ exports.updateLeaveType = async (req, res) => {
 
 exports.deleteLeaveType = async (req, res) => {
   try {
-    await req.db.leaveType.delete({
-      where: { id: parseInt(req.params.id) }
-    });
+    const id = parseInt(req.params.id);
+    const type = await req.db.leaveType.findUnique({ where: { id } });
+    await req.db.leaveType.delete({ where: { id } });
+    await writeAuditLog(
+      req.db, req, 'DELETE', 'LeaveType', id,
+      'name', type?.name || '', '',
+      `刪除假別 [「${type?.name || id}」]`
+    );
     res.json({ message: '刪除成功' });
   } catch (error) {
     res.status(500).json({ error: '刪除假別失敗，可能已有請假紀錄' });
@@ -262,7 +267,10 @@ exports.deleteLeaveRequest = async (req, res) => {
   const userId = req.headers['x-user-id'];
 
   try {
-    const target = await req.db.leaveRequest.findUnique({ where: { id: parseInt(id) } });
+    const target = await req.db.leaveRequest.findUnique({ 
+      where: { id: parseInt(id) },
+      include: { employee: true, leaveType: true }
+    });
     if (!target) return res.status(404).json({ error: '找不到該請假單' });
 
     // 權限檢查：管理員/協作者可以刪除所有人；員工只能刪除自己的
@@ -277,6 +285,13 @@ exports.deleteLeaveRequest = async (req, res) => {
     }
 
     await req.db.leaveRequest.delete({ where: { id: parseInt(id) } });
+
+    await writeAuditLog(
+      req.db, req, 'DELETE', 'LeaveRequest', parseInt(id),
+      'status', target.status, '',
+      `刪除 [${target.employee?.name || '未知'}] 的請假單 (${target.leaveType?.name}, ${target.start_date}~${target.end_date})`
+    );
+
     res.json({ message: '刪除成功' });
   } catch (error) {
     res.status(500).json({ error: '刪除失敗' });
@@ -449,9 +464,26 @@ exports.batchDeleteLeaveRequests = async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids || !Array.isArray(ids)) return res.status(400).json({ error: '無效的請求數據' });
+
+    // 先查詢要刪除的假單明細
+    const targets = await req.db.leaveRequest.findMany({
+      where: { id: { in: ids.map(id => parseInt(id)) } },
+      include: { employee: true, leaveType: true }
+    });
+
     await req.db.leaveRequest.deleteMany({
       where: { id: { in: ids.map(id => parseInt(id)) } }
     });
+
+    // 寫入日誌：每筆假單各記一筆
+    for (const t of targets) {
+      await writeAuditLog(
+        req.db, req, 'DELETE', 'LeaveRequest', t.id,
+        'status', t.status, '',
+        `批次刪除 [${t.employee?.name || '未知'}] 的請假單 (${t.leaveType?.name}, ${t.start_date}~${t.end_date})`
+      );
+    }
+
     res.json({ message: `成功刪除 ${ids.length} 筆請假單` });
   } catch (error) {
     console.error('Batch Delete Error:', error);

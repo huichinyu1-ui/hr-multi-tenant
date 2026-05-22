@@ -258,10 +258,13 @@ exports.updateEmployee = async (req, res) => {
 
 exports.deleteEmployee = async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+
+    // 先查詢要被刪除的員工姓名（在刪除前先取，否則日誌就查不到了）
+    const emp = await req.db.employee.findUnique({ where: { id } });
+
     // 使用交易確保所有關聯數據同時被清理
     await req.db.$transaction(async (tx) => {
-      const id = parseInt(req.params.id);
-      
       // 1. 刪除所有關聯數據
       await tx.employeeItemOverride.deleteMany({ where: { employeeId: id } });
       await tx.leaveQuota.deleteMany({ where: { employeeId: id } });
@@ -273,10 +276,16 @@ exports.deleteEmployee = async (req, res) => {
       await tx.missedPunchRequest.deleteMany({ where: { employeeId: id } });
       
       // 2. 執行最終的職員刪除
-      await tx.employee.delete({
-        where: { id }
-      });
+      await tx.employee.delete({ where: { id } });
     });
+
+    // 寫入稽核日誌
+    const { writeAuditLog } = require('../services/auditService');
+    await writeAuditLog(
+      req.db, req, 'DELETE', 'Employee', id,
+      'name', emp?.name || '', '',
+      emp ? `刪除員工 [${emp.name}] 及其全部關聯資料` : '刪除員工'
+    );
 
     res.json({ message: '員工及其所有關聯紀錄已成功刪除' });
   } catch (error) {

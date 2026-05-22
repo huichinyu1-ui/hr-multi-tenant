@@ -1,6 +1,6 @@
 // 移除全域 prisma
 const { evaluate } = require('mathjs');
-const { writeAuditLogBatch } = require('../services/auditService');
+const { writeAuditLog, writeAuditLogBatch } = require('../services/auditService');
 
 async function validateFormula(db, formula_expr, res, currentCode) {
   if (!formula_expr) return true;
@@ -165,9 +165,14 @@ exports.updateItem = async (req, res) => {
 
 exports.deleteItem = async (req, res) => {
   try {
-    await req.db.payrollItem.delete({
-      where: { id: parseInt(req.params.id) }
-    });
+    const id = parseInt(req.params.id);
+    const item = await req.db.payrollItem.findUnique({ where: { id } });
+    await req.db.payrollItem.delete({ where: { id } });
+    await writeAuditLog(
+      req.db, req, 'DELETE', 'PayrollItem', id,
+      'name', item?.name || '', '',
+      `刪除薪資項目 [「${item?.name || id}」]`
+    );
     res.json({ message: '項目已刪除' });
   } catch (error) {
     res.status(500).json({ error: '刪除項目失敗' });
