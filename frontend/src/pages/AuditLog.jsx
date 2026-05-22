@@ -178,7 +178,7 @@ export default function AuditLog() {
                   <div className="col-span-2 text-xs text-gray-600">
                     <div>{TABLE_LABELS[log.tableName] || log.tableName}<span className="text-gray-400 ml-1">#{log.recordId}</span></div>
                     {log.note && !isRevertLog && (
-                      <div className="mt-1 text-[10px] text-indigo-500 font-bold bg-indigo-50/80 border border-indigo-100 px-1.5 py-0.5 rounded w-fit truncate" title={log.note}>
+                      <div className="mt-1 text-[10px] text-indigo-500 font-bold bg-indigo-50/80 border border-indigo-100 px-1.5 py-0.5 rounded max-w-full truncate" title={log.note}>
                         💡 {log.note}
                       </div>
                     )}
