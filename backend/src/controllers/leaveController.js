@@ -321,13 +321,19 @@ exports.getLeaveQuotas = async (req, res) => {
 
     // 計算已使用小時 (APPROVED 狀態)
     const summary = await Promise.all(quotas.map(async (q) => {
+      let requestWhere = {
+        employeeId: q.employeeId,
+        leaveTypeId: q.leaveTypeId,
+        status: 'APPROVED'
+      };
+      if (q.valid_from && q.valid_to) {
+        requestWhere.start_date = { gte: q.valid_from, lte: q.valid_to };
+      } else {
+        requestWhere.start_date = { startsWith: targetYear.toString() };
+      }
+
       const requests = await req.db.leaveRequest.findMany({
-        where: {
-          employeeId: q.employeeId,
-          leaveTypeId: q.leaveTypeId,
-          status: 'APPROVED',
-          start_date: { startsWith: targetYear.toString() }
-        }
+        where: requestWhere
       });
       
       let usedHours = 0;
@@ -570,7 +576,9 @@ exports.exportLeaves = async (req, res) => {
         { header: '假別', key: 'type', width: 15 },
         { header: '總額度(天)', key: 'total', width: 12 },
         { header: '已使用(天)', key: 'used', width: 12 },
-        { header: '剩餘額度(天)', key: 'remaining', width: 12 }
+        { header: '剩餘額度(天)', key: 'remaining', width: 12 },
+        { header: '有效起日', key: 'valid_from', width: 15 },
+        { header: '有效迄日', key: 'valid_to', width: 15 }
       ];
 
       const year = new Date().getFullYear();
@@ -589,8 +597,15 @@ exports.exportLeaves = async (req, res) => {
         const ns = (nameSearch && nameSearch !== 'undefined') ? nameSearch.toLowerCase() : '';
         if (ns && !q.employee?.name?.toLowerCase().includes(ns) && !q.employee?.code?.toLowerCase().includes(ns)) continue;
 
+        let reqWhere = { employeeId: q.employeeId, leaveTypeId: q.leaveTypeId, status: 'APPROVED' };
+        if (q.valid_from && q.valid_to) {
+          reqWhere.start_date = { gte: q.valid_from, lte: q.valid_to };
+        } else {
+          reqWhere.start_date = { startsWith: year.toString() };
+        }
+        
         const approvedRequests = await req.db.leaveRequest.findMany({
-          where: { employeeId: q.employeeId, leaveTypeId: q.leaveTypeId, status: 'APPROVED', start_date: { startsWith: year.toString() } }
+          where: reqWhere
         });
         let usedHours = 0;
         approvedRequests.forEach(r => {
@@ -609,7 +624,9 @@ exports.exportLeaves = async (req, res) => {
           type: q.leaveType?.name,
           total: q.total_hours / 8,
           used: usedHours / 8,
-          remaining: (q.total_hours - usedHours) / 8
+          remaining: (q.total_hours - usedHours) / 8,
+          valid_from: q.valid_from || `${year}-01-01`,
+          valid_to: q.valid_to || `${year}-12-31`
         });
       }
     } else if (activeTab === 'settings') {
@@ -685,16 +702,69 @@ exports.autoCalculateQuotas = async (req, res) => {
         if (lt.quota_type === 'FIXED') {
           const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
           const annualHours = (lt.default_days || 0) * 8;
+          let valid_from = null;
+          let valid_to = null;
+          if (lt.calculation_mode === 'ANNIVERSARY') {
+             // 週年制固定天數，有效日通常就是當年的到職日到隔年到職日前一天
+             valid_from = `${targetYear}-${String(joinDate.getMonth()+1).padStart(2, '0')}-${String(joinDate.getDate()).padStart(2, '0')}`;
+             const nextYearDate = new Date(targetYear + 1, joinDate.getMonth(), joinDate.getDate() - 1);
+             valid_to = `${nextYearDate.getFullYear()}-${String(nextYearDate.getMonth()+1).padStart(2, '0')}-${String(nextYearDate.getDate()).padStart(2, '0')}`;
+          }
           operations.push(req.db.leaveQuota.upsert({
             where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
-            update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
-            create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours }
+            update: { annual_hours: annualHours, total_hours: carriedOver + annualHours, valid_from, valid_to },
+            create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours, valid_from, valid_to }
           }));
         } else if (lt.quota_type === 'SENIORITY' && lt.seniority_rules) {
           try {
             const rules = JSON.parse(lt.seniority_rules).sort((a, b) => b.months - a.months);
             
-            // 歷年制：按日比例計算
+            if (lt.calculation_mode === 'ANNIVERSARY') {
+               // 週年制：不照比例折算，而是判斷「今年 (targetYear)」會觸發哪些年資里程碑
+               // 例如：今年是滿半年的日子？還是滿 N 年的日子？
+               
+               let annualHours = 0;
+               let valid_from = null;
+               let valid_to = null;
+
+               // 計算今年對應的週年紀念日
+               const annivDateThisYear = new Date(targetYear, joinDate.getMonth(), joinDate.getDate());
+               
+               // 1. 檢查今年是否觸發「滿半年」
+               const sixMonthAnniv = new Date(joinDate.getFullYear(), joinDate.getMonth() + 6, joinDate.getDate());
+               if (sixMonthAnniv.getFullYear() === targetYear) {
+                 const rule = rules.find(r => r.months === 6);
+                 if (rule) {
+                   annualHours = rule.days * 8;
+                   valid_from = `${targetYear}-${String(sixMonthAnniv.getMonth()+1).padStart(2, '0')}-${String(sixMonthAnniv.getDate()).padStart(2, '0')}`;
+                   // 有效期至滿一年前一天
+                   const oneYearAnniv = new Date(joinDate.getFullYear() + 1, joinDate.getMonth(), joinDate.getDate() - 1);
+                   valid_to = `${oneYearAnniv.getFullYear()}-${String(oneYearAnniv.getMonth()+1).padStart(2, '0')}-${String(oneYearAnniv.getDate()).padStart(2, '0')}`;
+                 }
+               }
+               
+               // 2. 檢查今年是否觸發「滿 N 年」 (N >= 1)
+               if (annivDateThisYear.getFullYear() > joinDate.getFullYear()) {
+                 const diffYears = targetYear - joinDate.getFullYear();
+                 const rule = rules.find(r => r.months <= diffYears * 12);
+                 if (rule) {
+                   annualHours = rule.days * 8;
+                   valid_from = `${targetYear}-${String(annivDateThisYear.getMonth()+1).padStart(2, '0')}-${String(annivDateThisYear.getDate()).padStart(2, '0')}`;
+                   const nextYearAnniv = new Date(targetYear + 1, joinDate.getMonth(), joinDate.getDate() - 1);
+                   valid_to = `${nextYearAnniv.getFullYear()}-${String(nextYearAnniv.getMonth()+1).padStart(2, '0')}-${String(nextYearAnniv.getDate()).padStart(2, '0')}`;
+                 }
+               }
+
+               if (annualHours > 0) {
+                 const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
+                 operations.push(req.db.leaveQuota.upsert({
+                   where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
+                   update: { annual_hours: annualHours, total_hours: carriedOver + annualHours, valid_from, valid_to },
+                   create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours, valid_from, valid_to }
+                 }));
+               }
+            } else {
+              // 歷年制：按日比例計算
             const isLeapYear = (targetYear % 4 === 0 && targetYear % 100 !== 0) || (targetYear % 400 === 0);
             const daysInYear = isLeapYear ? 366 : 365;
             
@@ -726,15 +796,16 @@ exports.autoCalculateQuotas = async (req, res) => {
               }
             }
             
-            // 依據使用者需求：計算直接無條件進位
-            const annualHours = Math.ceil(totalAnnualHours);
-            const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
-            
-            operations.push(req.db.leaveQuota.upsert({
-              where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
-              update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
-              create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours }
-            }));
+              // 依據使用者需求：計算直接無條件進位
+              const annualHours = Math.ceil(totalAnnualHours);
+              const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
+              
+              operations.push(req.db.leaveQuota.upsert({
+                where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
+                update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
+                create: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear, annual_hours: annualHours, carried_over_hours: 0, total_hours: annualHours }
+              }));
+            }
           } catch (e) { console.error('Failed to parse seniority_rules for ' + lt.code); }
         }
       }

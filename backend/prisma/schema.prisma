@@ -187,6 +187,7 @@ model LeaveType {
   note            String?   // 備註欄位
   is_carry_over_enabled   Boolean  @default(false)    // 是否啟用跨年度結轉
   carry_over_expiry_months Int?                       // 結轉時數使用期限（月數，null = 永久）
+  calculation_mode String?   @default("CALENDAR")       // 計算週期：CALENDAR (曆年制) 或 ANNIVERSARY (週年制)
   eligibleEmployees Employee[] @relation("LeaveTypeEligibility")
   requests        LeaveRequest[]
   quotas          LeaveQuota[]
@@ -317,6 +318,8 @@ model LeaveQuota {
   carried_over_hours Float    @default(0) // 結轉剩餘休假時數（由上年度結轉）
   annual_hours       Float    @default(0) // 本年度休假時數
   total_hours        Float    @default(0) // 年度總額度 (carried_over + annual)
+  valid_from         String?              // 額度有效起日 (YYYY-MM-DD)
+  valid_to           String?              // 額度有效迄日 (YYYY-MM-DD)
   employee           Employee @relation(fields: [employeeId], references: [id])
   leaveType          LeaveType @relation(fields: [leaveTypeId], references: [id])
 

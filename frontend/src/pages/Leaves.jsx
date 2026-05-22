@@ -223,8 +223,8 @@ export default function Leaves() {
 
   const handleAutoCalcQuotas = async () => {
     const msg = selectedCalcEmpIds.length > 0 
-      ? `系統即將根據「歷年制」比例重新試算【選中的 ${selectedCalcEmpIds.length} 位員工】本年度特休（計算結果將無條件進位）。\n\n確定要執行批次試算嗎？`
-      : `系統即將根據「歷年制」比例重新試算【全體員工】本年度特休（計算結果將無條件進位）。\n\n⚠️ 【重要轉換提醒】\n若貴公司今年是「首年由週年制轉換為歷年制」，系統算出的年度時數會包含「上半年」的特休額度。為避免與去年已發放的時數重複，建議您在試算完成後，自行將重複發放的時數扣除。\n\n確定要執行批次試算嗎？`;
+      ? `系統即將根據「假別設定」的週期規則（曆年/週年），重新試算【選中的 ${selectedCalcEmpIds.length} 位員工】本年度特休。\n\n確定要執行批次試算嗎？`
+      : `系統即將根據「假別設定」的週期規則（曆年/週年），自動試算【全體員工】本年度特休。\n\n確定要執行批次試算嗎？`;
       
     if (!window.confirm(msg)) return;
     

@@ -24,7 +24,8 @@ export default function LeaveTypes() {
     seniority_rules: [],
     note: '',
     is_carry_over_enabled: false,
-    carry_over_expiry_months: ''
+    carry_over_expiry_months: '',
+    calculation_mode: 'CALENDAR'
   };
   const [form, setForm] = useState(initialForm);
   const baseInputRef = useRef(null);
@@ -231,10 +232,23 @@ export default function LeaveTypes() {
         <div className="space-y-6">
           <h3 className="text-sm font-black text-indigo-600 mb-4 flex items-center gap-2"><Calendar size={16}/> 3. 年度額度核發設定</h3>
           
-          <div className="flex gap-2 mb-4 p-1 bg-gray-200/50 rounded-xl w-fit">
-            <button type="button" onClick={()=>setForm({...form, quota_type: 'FIXED'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${form.quota_type === 'FIXED' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>固定天數</button>
-            <button type="button" onClick={()=>setForm({...form, quota_type: 'SENIORITY'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${form.quota_type === 'SENIORITY' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>依年資核發</button>
-            <button type="button" onClick={()=>setForm({...form, quota_type: 'UNLIMITED'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${form.quota_type === 'UNLIMITED' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>無限制(按次申請)</button>
+          <div className="flex flex-col gap-5 mb-6">
+            <div className="space-y-2">
+               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">給假週期制 <span className="text-[9px] font-bold lowercase bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">影響額度的有效起迄日</span></label>
+               <div className="flex gap-2 p-1 bg-gray-200/50 rounded-xl w-fit">
+                 <button type="button" onClick={()=>setForm({...form, calculation_mode: 'CALENDAR'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${(!form.calculation_mode || form.calculation_mode === 'CALENDAR') ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>📅 曆年制 (每年 1/1 起算)</button>
+                 <button type="button" onClick={()=>setForm({...form, calculation_mode: 'ANNIVERSARY'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${form.calculation_mode === 'ANNIVERSARY' ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>🎂 週年制 (依員工到職日)</button>
+               </div>
+            </div>
+
+            <div className="space-y-2">
+               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">額度發放方式</label>
+               <div className="flex gap-2 p-1 bg-gray-200/50 rounded-xl w-fit">
+                 <button type="button" onClick={()=>setForm({...form, quota_type: 'FIXED'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${form.quota_type === 'FIXED' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>固定天數</button>
+                 <button type="button" onClick={()=>setForm({...form, quota_type: 'SENIORITY'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${form.quota_type === 'SENIORITY' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>依年資核發</button>
+                 <button type="button" onClick={()=>setForm({...form, quota_type: 'UNLIMITED'})} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${form.quota_type === 'UNLIMITED' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>無限制(按次申請)</button>
+               </div>
+            </div>
           </div>
 
           {form.quota_type === 'FIXED' && (
@@ -386,7 +400,11 @@ export default function LeaveTypes() {
                       <span>扣款比例: {Math.round(type.deduction_ratio * 100)}%</span>
                       <span className="text-gray-300">|</span>
                       <span>
-                        額度發放: {type.quota_type === 'FIXED' ? `固定 ${type.default_days} 天` : type.quota_type === 'SENIORITY' ? '依年資發放' : '無限制申請'}
+                        週期: {(!type.calculation_mode || type.calculation_mode === 'CALENDAR') ? '📅 曆年制' : '🎂 週年制'}
+                      </span>
+                      <span className="text-gray-300">|</span>
+                      <span>
+                        額度: {type.quota_type === 'FIXED' ? `固定 ${type.default_days} 天` : type.quota_type === 'SENIORITY' ? '依年資發放' : '無限制申請'}
                       </span>
                     </div>
                   </div>
