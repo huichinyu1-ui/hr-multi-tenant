@@ -77,13 +77,6 @@ app.get('/', (req, res) => {
   res.send('Payroll API is running (Multi-Tenant Edition)');
 });
 
-// 每次啟動時，自動為所有租戶執行結構遷移（補齊缺少的欄位）
-const { runStartupMigrations } = require('./services/startupMigration');
-const { centralClient } = require('./db_manager');
-runStartupMigrations(centralClient)
-  .then(() => console.log('[Startup Migration] Done.'))
-  .catch(e => console.warn('[Startup Migration] Failed:', e.message));
-
 // 種入系統預設角色（每次啟動時確保存在）
 const { seedSystemRoles } = require('./controllers/roleController');
 if (process.env.DATABASE_URL) {

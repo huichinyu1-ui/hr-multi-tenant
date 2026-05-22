@@ -322,3 +322,53 @@ exports.runAuditLogMigration = async (req, res) => {
     res.status(500).json({ error: '遷移失敗: ' + err.message, results });
   }
 };
+/**
+ * 一次性遷移：為所有租戶 Turso DB 新增週年制欄位
+ * POST /api/super-admin/run-anniversary-migration
+ */
+exports.runAnniversaryMigration = async (req, res) => {
+  const { createClient } = require('@libsql/client');
+  const results = [];
+
+  const sqlStatements = [
+    `ALTER TABLE "LeaveType" ADD COLUMN "calculation_mode" TEXT DEFAULT 'CALENDAR'`,
+    `ALTER TABLE "LeaveQuota" ADD COLUMN "valid_from" TEXT`,
+    `ALTER TABLE "LeaveQuota" ADD COLUMN "valid_to" TEXT`,
+  ];
+
+  try {
+    const companies = await centralClient.company.findMany({ where: { status: 'ACTIVE' } });
+
+    for (const company of companies) {
+      const log = { code: company.code, changes: [], errors: [] };
+
+      if (company.db_url.startsWith('file:')) {
+        log.changes.push('Skipped (local SQLite)');
+        results.push(log);
+        continue;
+      }
+
+      const tenantDb = createClient({ url: company.db_url, authToken: company.db_token });
+
+      for (const sql of sqlStatements) {
+        try {
+          await tenantDb.execute(sql);
+          log.changes.push(`✅ ${sql}`);
+        } catch (e) {
+          if (e.message && e.message.includes('duplicate column name')) {
+            log.changes.push(`⚠️ Already exists: ${sql}`);
+          } else {
+            log.errors.push(`❌ ${sql}: ${e.message}`);
+          }
+        }
+      }
+
+      results.push(log);
+    }
+
+    res.json({ message: '週年制欄位遷移完成！', results });
+  } catch (err) {
+    console.error('[Anniversary Migration] Error:', err);
+    res.status(500).json({ error: '遷移失敗: ' + err.message, results });
+  }
+};

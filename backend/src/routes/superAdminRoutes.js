@@ -12,5 +12,6 @@ router.post('/companies/create-admin', superAdminController.createAdmin);
 router.delete('/companies/:code', superAdminController.deleteCompany);
 router.post('/run-leave-migration', superAdminController.runLeaveSchemaMigration);
 router.post('/run-audit-migration', superAdminController.runAuditLogMigration);
+router.post('/run-anniversary-migration', superAdminController.runAnniversaryMigration);
 
 module.exports = router;
