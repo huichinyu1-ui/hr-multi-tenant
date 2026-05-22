@@ -21,7 +21,7 @@ exports.getLeaveTypes = async (req, res) => {
     });
     res.json(types);
   } catch (error) {
-    res.status(500).json({ error: '獲取假別失敗' });
+    res.status(500).json({ error: '獲取假別失敗', details: error.message, stack: error.stack });
   }
 };
 

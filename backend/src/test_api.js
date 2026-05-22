@@ -1,21 +1,26 @@
-const axios = require('axios');
+const http = require('http');
 
-async function testApi() {
-  try {
-    const res = await axios.delete('http://localhost:3001/api/insurance/policies/3', {
-      headers: {
-        'x-company-code': 'TJS1'
-      }
-    });
-    console.log('Success:', res.data);
-  } catch (err) {
-    if (err.response) {
-      console.error('API Error Status:', err.response.status);
-      console.error('API Error Data:', err.response.data);
-    } else {
-      console.error('Error:', err.message);
-    }
+const options = {
+  hostname: 'localhost',
+  port: 3001,
+  path: '/api/leaves/types',
+  method: 'GET',
+  headers: {
+    'x-company-code': 'TJS',
+    'x-user-role': 'ADMIN',
+    'x-user-id': '1'
   }
-}
+};
 
-testApi();
+const req = http.request(options, res => {
+  console.log(`STATUS: ${res.statusCode}`);
+  let data = '';
+  res.on('data', chunk => { data += chunk; });
+  res.on('end', () => { console.log('BODY:', data); });
+});
+
+req.on('error', e => {
+  console.error(`problem with request: ${e.message}`);
+});
+
+req.end();
