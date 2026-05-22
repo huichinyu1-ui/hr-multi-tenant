@@ -18,6 +18,7 @@ export default function Formulas() {
   };
   const [form, setForm] = useState(initialForm);
   const [activeVarTab, setActiveVarTab] = useState(0);
+  const [saving, setSaving] = useState(false);
   
   const formulaInputRef = useRef(null);
 
@@ -61,6 +62,8 @@ export default function Formulas() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
       if (form.id) {
         await api.put(`/items/${form.id}`, form);
@@ -75,6 +78,8 @@ export default function Formulas() {
       fetchData();
     } catch (e) { 
       addToast(e.response?.data?.error || '儲存失敗', 'error'); 
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -370,10 +375,21 @@ export default function Formulas() {
           )}
 
           <div className="pt-6 flex gap-3">
-            <button type="button" onClick={handleSubmit} className="bg-indigo-600 text-white px-8 py-3 rounded-xl text-sm font-black hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2">
-              <Save size={18} /> {form.id ? '儲存變更' : '建立項目'}
+            <button 
+              type="button" 
+              onClick={handleSubmit} 
+              disabled={saving}
+              className={`text-white px-8 py-3 rounded-xl text-sm font-black shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 ${saving ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+            >
+              {saving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={18} />}
+              {saving ? '儲存中...' : (form.id ? '儲存變更' : '建立項目')}
             </button>
-            <button type="button" onClick={() => { setExpandedId(null); setShowCreateForm(false); }} className="px-6 bg-white border border-gray-300 text-gray-600 py-3 rounded-xl text-sm font-black hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+            <button 
+              type="button" 
+              onClick={() => { setExpandedId(null); setShowCreateForm(false); }} 
+              disabled={saving}
+              className={`px-6 bg-white border border-gray-300 text-gray-600 py-3 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 ${saving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+            >
               <X size={18} /> 取消
             </button>
           </div>

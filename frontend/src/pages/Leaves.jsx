@@ -22,6 +22,7 @@ export default function Leaves() {
   const [quotas, setQuotas] = useState([]);
   const [activeTab, setActiveTab] = useState('requests');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false); // 防呆機制：儲存中狀態
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedCalcEmpIds, setSelectedCalcEmpIds] = useState([]);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
@@ -145,12 +146,14 @@ export default function Leaves() {
 
   const handleOtSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
       await api.post('/overtime', otForm);
       addToast('加班申請送出成功', 'success');
       setShowOvertimeModal(false);
       fetchData();
-    } catch (e) { addToast('送出失敗', 'error'); }
+    } catch (e) { addToast('送出失敗', 'error'); } finally { setSaving(false); }
   };
 
   const handleUpdateOtStatus = async (id, status) => {
@@ -256,17 +259,19 @@ export default function Leaves() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     const startDT = new Date(`${form.start_date}T${form.start_time}`);
     const endDT = new Date(`${form.end_date}T${form.end_time}`);
     if (startDT >= endDT) return alert('錯誤：結束時間必須晚於開始時間');
     
+    setSaving(true);
     try {
       await api.post('/leaves/requests', form);
       setForm({ employeeId: canManage ? '' : user?.id, leaveTypeId: '', start_date: '', start_time: '08:00', end_date: '', end_time: '17:00', reason: '' });
       addToast('申請成功', 'success');
       setShowRequestModal(false);
       fetchData();
-    } catch (e) { addToast('新增失敗: ' + (e.response?.data?.error || '資料格式錯誤'), 'error'); }
+    } catch (e) { addToast('新增失敗: ' + (e.response?.data?.error || '資料格式錯誤'), 'error'); } finally { setSaving(false); }
   };
 
   const handleUpdateStatus = async (id, status) => {
@@ -291,6 +296,8 @@ export default function Leaves() {
 
   const handleTypeSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
       if (typeForm.id) await api.put(`/leaves/types/${typeForm.id}`, typeForm);
       else await api.post('/leaves/types', typeForm);
@@ -299,7 +306,7 @@ export default function Leaves() {
       setExpandedTypeId(null);
       addToast('儲存成功', 'success');
       fetchData();
-    } catch (e) { addToast('儲存失敗', 'error'); }
+    } catch (e) { addToast('儲存失敗', 'error'); } finally { setSaving(false); }
   };
 
   const handleDeleteType = async (id) => {
@@ -337,15 +344,17 @@ export default function Leaves() {
 
   const handleBatchSave = async () => {
     if (!batchLeaveTypeId) return alert('請先選擇假別');
+    if (saving) return;
     const quotasToSave = employees.map(emp => ({
       employeeId: emp.id, leaveTypeId: batchLeaveTypeId, year: batchYear, total_hours: parseFloat(batchValues[emp.id] || 0)
     }));
+    setSaving(true);
     try {
       await api.post('/leaves/quotas/batch', { quotas: quotasToSave });
       addToast('批次核給成功', 'success');
       fetchQuotas();
       setShowQuotaModal(false);
-    } catch (e) { addToast('儲存失敗', 'error'); }
+    } catch (e) { addToast('儲存失敗', 'error'); } finally { setSaving(false); }
   };
 
   const filteredRequests = requests.filter(r => {
@@ -877,7 +886,10 @@ export default function Leaves() {
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">申請事由 / 備註</label>
                 <textarea rows="3" value={form.reason} onChange={e=>setForm({...form, reason: e.target.value})} className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold focus:bg-white outline-none transition-all" placeholder="請填寫詳細事由..."></textarea>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">送出申請單</button>
+              <button type="submit" disabled={saving} className={`w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : 'hover:bg-indigo-700'}`}>
+                {saving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+                {saving ? '送出中...' : '送出申請單'}
+              </button>
             </form>
           </div>
         </div>
@@ -927,7 +939,10 @@ export default function Leaves() {
              </div>
              <div className="p-8 border-t bg-gray-50 flex justify-end gap-3">
                 <button onClick={()=>setShowQuotaModal(false)} className="px-6 py-2.5 rounded-xl font-bold text-sm text-gray-500 hover:bg-gray-200 transition-colors">取消</button>
-                <button onClick={handleBatchSave} className="bg-blue-600 text-white px-8 py-2.5 rounded-xl font-black text-sm shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">確認核給</button>
+                <button onClick={handleBatchSave} disabled={saving} className={`bg-blue-600 text-white px-8 py-2.5 rounded-xl font-black text-sm shadow-lg shadow-blue-100 transition-all flex items-center justify-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'}`}>
+                  {saving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+                  {saving ? '處理中...' : '確認核給'}
+                </button>
              </div>
           </div>
         </div>
@@ -968,7 +983,10 @@ export default function Leaves() {
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">加班事由</label>
                 <textarea rows="3" value={otForm.reason} onChange={e=>setOtForm({...otForm, reason: e.target.value})} className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold focus:bg-white outline-none transition-all" placeholder="請簡述加班原因..."></textarea>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">送出加班單</button>
+              <button type="submit" disabled={saving} className={`w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : 'hover:bg-indigo-700'}`}>
+                {saving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+                {saving ? '送出中...' : '送出加班單'}
+              </button>
             </form>
           </div>
         </div>
