@@ -18,8 +18,8 @@ const formatTime = (date, time) => {
   return time.slice(0, 5);
 };
 
-// 浮層元件
-function LeavePopover({ date, leaves, onClose }) {
+// 浮層元件：popoverDir='right' 向右彈出，'left' 向左彈出
+function LeavePopover({ date, leaves, onClose, popoverDir = 'right' }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -28,10 +28,14 @@ function LeavePopover({ date, leaves, onClose }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
+  const posClass = popoverDir === 'left'
+    ? 'right-full top-0 mr-2'   // 向左彈出（靠右側欄位使用）
+    : 'left-full top-0 ml-2';   // 向右彈出（預設）
+
   return (
     <div
       ref={ref}
-      className="absolute z-50 left-full top-0 ml-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+      className={`absolute z-50 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden ${posClass}`}
       style={{ minWidth: '260px' }}
       onClick={e => e.stopPropagation()}
     >
@@ -228,9 +232,9 @@ export default function Calendar() {
           const dateObj = new Date(day.date);
           const dayOfWeek = dateObj.getDay();
           const dayLeaves = leaveMap[day.date] || [];
-          const visibleLeaves = dayLeaves.slice(0, MAX_VISIBLE);
-          const hiddenCount = dayLeaves.length - MAX_VISIBLE;
           const isPopoverOpen = popoverDate === day.date;
+          // 週四(4)、週五(5)、週六(6) 向左彈出，其餘向右
+          const popoverDir = dayOfWeek >= 4 ? 'left' : 'right';
 
           return (
             <div
@@ -259,40 +263,47 @@ export default function Calendar() {
                 </div>
               </div>
 
-              {/* 請假名條區域 */}
+              {/* 請假摘要區域：所有有假單的日期都可點擊展開浮層 */}
               {dayLeaves.length > 0 && (
-                <div className="px-1 pb-1.5 mt-1 space-y-0.5 flex-1" onClick={e => e.stopPropagation()}>
-                  {visibleLeaves.map(lr => {
-                    const color = getLeaveColor(lr.leaveType?.name);
-                    return (
-                      <div
-                        key={lr.id}
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${color.bg} ${color.text} border ${color.border} truncate w-full`}
-                        title={`${lr.employee?.name} - ${lr.leaveType?.name}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${color.dot}`} />
-                        <span className="truncate">{lr.employee?.name}</span>
-                      </div>
-                    );
-                  })}
-
-                  {/* +N 人請假 - 浮層觸發按鈕 */}
-                  {hiddenCount > 0 && (
-                    <div className="relative">
-                      <button
-                        onClick={e => { e.stopPropagation(); setPopoverDate(isPopoverOpen ? null : day.date); }}
-                        className="w-full text-[10px] font-black text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded px-1.5 py-0.5 transition-colors text-left"
-                      >
-                        +{hiddenCount} 人請假…
-                      </button>
-                      {isPopoverOpen && (
-                        <LeavePopover
-                          date={day.date}
-                          leaves={dayLeaves}
-                          onClose={() => setPopoverDate(null)}
-                        />
-                      )}
+                <div className="px-1 pb-1.5 mt-1 flex-1 relative" onClick={e => e.stopPropagation()}>
+                  {/* 彩色小圓點列：顯示所有人，最多顯示 6 個點後截斷 */}
+                  <button
+                    onClick={e => { e.stopPropagation(); setPopoverDate(isPopoverOpen ? null : day.date); }}
+                    className="w-full group/btn"
+                    title={`點擊查看 ${dayLeaves.length} 筆請假詳情`}
+                  >
+                    {/* 名條：最多顯示 2 筆 */}
+                    <div className="space-y-0.5">
+                      {dayLeaves.slice(0, 2).map(lr => {
+                        const color = getLeaveColor(lr.leaveType?.name);
+                        return (
+                          <div
+                            key={lr.id}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${color.bg} ${color.text} border ${color.border} w-full group-hover/btn:brightness-95 transition-all`}
+                            title={`${lr.employee?.name} - ${lr.leaveType?.name}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${color.dot}`} />
+                            <span className="truncate">{lr.employee?.name}</span>
+                          </div>
+                        );
+                      })}
                     </div>
+                    {/* 超過 2 筆：顯示 +N 更多 */}
+                    {dayLeaves.length > 2 && (
+                      <div className="mt-0.5 w-full text-[10px] font-black text-indigo-500 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 text-left group-hover/btn:bg-indigo-100 transition-colors">
+                        +{dayLeaves.length - 2} 人請假…
+                      </div>
+                    )}
+                  </button>
+
+                  {/* 浮層 */}
+                  {isPopoverOpen && (
+                    <LeavePopover
+                      date={day.date}
+                      leaves={dayLeaves}
+                      onClose={() => setPopoverDate(null)}
+                      popoverDir={popoverDir}
+                    />
                   )}
                 </div>
               )}
