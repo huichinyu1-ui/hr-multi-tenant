@@ -188,19 +188,39 @@ export default function Attendance() {
     } catch (e) { alert('更新失敗'); }
   };
 
-  const handleTimeChange = async (id, field, value, originalValue, e) => {
+  const handleTimeChange = async (id, field, value) => {
     const fieldLabel = field === 'clock_in' ? '上班時間' : '下班時間';
     if (!window.confirm(`確定要將此員工的${fieldLabel}修改為 ${value || '空值'} 嗎？`)) {
-      if (e && e.target) e.target.value = originalValue || ''; // 復原畫面
-      return;
+      return false; // 回傳 false 讓元件知道要復原
     }
     try {
       await api.put(`/attendances/${id}`, { [field]: value || null });
       fetchRecords();
+      return true;
     } catch (err) { 
       alert('更新時間失敗'); 
       fetchRecords();
+      return false;
     }
+  };
+
+  const TimeInput = ({ initialValue, onSave }) => {
+    const [val, setVal] = React.useState(initialValue || '');
+    React.useEffect(() => { setVal(initialValue || ''); }, [initialValue]);
+    return (
+      <input 
+        type="time" 
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={async () => {
+          if (val !== (initialValue || '')) {
+            const success = await onSave(val);
+            if (!success) setVal(initialValue || '');
+          }
+        }}
+        className="bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+      />
+    );
   };
 
   const getStatusBadge = (status, leaveCode) => {
@@ -564,26 +584,14 @@ export default function Attendance() {
                       <td className="px-4 py-2 border-r border-gray-200 font-mono">
                         {canManageAttendance ? (
                           <div className="flex items-center gap-1">
-                            <input 
-                              type="time" 
-                              defaultValue={r.clock_in || ''}
-                              onBlur={e => {
-                                if (e.target.value !== (r.clock_in || '')) {
-                                  handleTimeChange(r.id, 'clock_in', e.target.value, r.clock_in, e);
-                                }
-                              }}
-                              className="bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                            <TimeInput 
+                              initialValue={r.clock_in} 
+                              onSave={(val) => handleTimeChange(r.id, 'clock_in', val)} 
                             />
                             <span className="text-gray-400">→</span>
-                            <input 
-                              type="time" 
-                              defaultValue={r.clock_out || ''}
-                              onBlur={e => {
-                                if (e.target.value !== (r.clock_out || '')) {
-                                  handleTimeChange(r.id, 'clock_out', e.target.value, r.clock_out, e);
-                                }
-                              }}
-                              className="bg-gray-50 border border-gray-200 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                            <TimeInput 
+                              initialValue={r.clock_out} 
+                              onSave={(val) => handleTimeChange(r.id, 'clock_out', val)} 
                             />
                           </div>
                         ) : (
