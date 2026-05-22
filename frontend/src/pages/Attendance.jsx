@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Filter, X, Printer, Zap, Trash2, Settings, Calendar, Download, Clock, Upload, Search, User, CheckCircle, AlertTriangle, Play, Database } from 'lucide-react';
+import { FileSpreadsheet, Filter, X, Printer, Zap, Trash2, Settings, Calendar, Download, Clock, Upload, Search, User, CheckCircle, AlertTriangle, Play, Database, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import api from '../utils/api';
 import { usePermission } from '../contexts/PermissionContext';
 import DateRangePicker from '../components/DateRangePicker';
@@ -246,15 +246,92 @@ export default function Attendance() {
     }
   };
 
-  const filteredRecords = records.filter(r => {
+  // --- Sorting ---
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: '' });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+    if (sortConfig.key === key && sortConfig.direction === 'desc') { key = ''; direction = ''; }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortValue = (item, key, isSummary = false) => {
+    if (isSummary) {
+      switch (key) {
+        case 'code': return item.employee?.code || '';
+        case 'name': return item.employee?.name || '';
+        case 'expected': return item.expected_days || 0;
+        case 'actual': return item.actual_days || 0;
+        case 'work_hours': return item.work_hours || 0;
+        case 'late': return item.late_days || 0;
+        case 'late_mins': return item.late_mins || 0;
+        case 'early_leave': return item.early_leave_days || 0;
+        case 'early_leave_hours': return item.early_leave_hours || 0;
+        case 'absent': return item.absent_count || 0;
+        case 'absent_hours': return item.absent_hours || 0;
+        case 'overtime': return item.total_overtime_hours || 0;
+        case 'overtime1_hours': return item.overtime1_hours || 0;
+        case 'overtime2_hours': return item.overtime2_hours || 0;
+        case 'holiday_overtime': return item.holiday_overtime_hours || 0;
+        default: return '';
+      }
+    }
+    switch (key) {
+      case 'date': return item.date || '';
+      case 'name': return item.employee?.name || '';
+      case 'code': return item.employee?.code || '';
+      case 'clock_in_out': return item.clock_in || '';
+      case 'status': return item.status || '';
+      case 'clock_in_status': return item.clock_in_status || '';
+      case 'clock_out_status': return item.clock_out_status || '';
+      case 'late_mins': return item.late_mins || 0;
+      case 'early_mins': return item.early_leave_mins || 0;
+      case 'work_mins': return item.work_mins || 0;
+      case 'overtime1': return item.overtime1_mins || 0;
+      case 'overtime2': return item.overtime2_mins || 0;
+      case 'holiday_overtime': return item.holiday_overtime_mins || 0;
+      default: return '';
+    }
+  };
+
+  const sortItems = (items, isSummary = false) => {
+    if (!sortConfig.key) return items;
+    return [...items].sort((a, b) => {
+      const av = getSortValue(a, sortConfig.key, isSummary);
+      const bv = getSortValue(b, sortConfig.key, isSummary);
+      if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const SortHeader = ({ id, label, align = 'left', className = '' }) => (
+    <th
+      className={`px-4 py-2 text-${align} border-r border-gray-300 cursor-pointer hover:bg-indigo-50 transition-colors select-none group ${className}`}
+      onClick={() => handleSort(id)}
+    >
+      <div className={`flex items-center gap-1 justify-${align === 'center' ? 'center' : 'start'}`}>
+        {label}
+        {sortConfig.key === id ? (
+          sortConfig.direction === 'asc' ? <ChevronUp size={13} className="text-indigo-600" /> : <ChevronDown size={13} className="text-indigo-600" />
+        ) : (
+          <ArrowUpDown size={13} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </div>
+    </th>
+  );
+  // --- End Sorting ---
+
+  const filteredRecords = sortItems(records.filter(r => {
     const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(r.employeeId);
     const matchesNameSearch = !nameSearch || r.employee?.name?.includes(nameSearch) || r.employee?.code?.includes(nameSearch) || r.date?.includes(nameSearch);
     const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
     if (activeTab === 'anomalies') return matchesEmp && matchesNameSearch && matchesStatus && r.status !== 'PRESENT' && r.status !== 'LEAVE';
     return matchesEmp && matchesNameSearch && matchesStatus;
-  });
+  }));
 
-  const filteredSummary = summary.filter(s => {
+  const filteredSummary = sortItems(summary.filter(s => {
     const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(s.employee?.id);
     const matchesNameSearch = !nameSearch || s.employee?.name?.includes(nameSearch) || s.employee?.code?.includes(nameSearch);
     return matchesEmp && matchesNameSearch;
@@ -509,27 +586,27 @@ export default function Attendance() {
                 <th className="w-12 p-2 border-r border-gray-300 text-center">#</th>
                 {activeTab === 'summary' ? (
                   <>
-                    {visibleColumns.summary?.includes('code') && <th className="px-4 py-2 text-left border-r border-gray-300">工號</th>}
-                    {visibleColumns.summary?.includes('name') && <th className="px-4 py-2 text-left border-r border-gray-300">員工姓名</th>}
-                    {visibleColumns.summary?.includes('expected') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-indigo-50/50">應到天數</th>}
-                    {visibleColumns.summary?.includes('actual') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-indigo-50/50">實到天數</th>}
-                    {visibleColumns.summary?.includes('work_hours') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-indigo-50/50">有效工時</th>}
-                    {visibleColumns.summary?.includes('late') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-orange-50/50">遲到次數</th>}
-                    {visibleColumns.summary?.includes('late_mins') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-orange-50/50">遲到分鐘</th>}
-                    {visibleColumns.summary?.includes('early_leave') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-amber-50/50">早退次數</th>}
-                    {visibleColumns.summary?.includes('early_leave_hours') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-amber-50/50">早退小時</th>}
-                    {visibleColumns.summary?.includes('absent') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-red-50/50">曠職次數</th>}
-                    {visibleColumns.summary?.includes('absent_hours') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-red-50/50">曠職時數</th>}
-                    {visibleColumns.summary?.includes('overtime') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-blue-50/50">總加班時數</th>}
-                    {visibleColumns.summary?.includes('overtime1_hours') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-blue-50/50">1階加班</th>}
-                    {visibleColumns.summary?.includes('overtime2_hours') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-blue-50/50">2階加班</th>}
-                    {visibleColumns.summary?.includes('holiday_overtime') && <th className="px-4 py-2 text-center border-r border-gray-300 bg-purple-50/50">假日加班</th>}
+                    {visibleColumns.summary?.includes('code') && <SortHeader id="code" label="工號" />}
+                    {visibleColumns.summary?.includes('name') && <SortHeader id="name" label="員工姓名" />}
+                    {visibleColumns.summary?.includes('expected') && <SortHeader id="expected" label="應到天數" align="center" className="bg-indigo-50/50" />}
+                    {visibleColumns.summary?.includes('actual') && <SortHeader id="actual" label="實到天數" align="center" className="bg-indigo-50/50" />}
+                    {visibleColumns.summary?.includes('work_hours') && <SortHeader id="work_hours" label="有效工時" align="center" className="bg-indigo-50/50" />}
+                    {visibleColumns.summary?.includes('late') && <SortHeader id="late" label="遲到次數" align="center" className="bg-orange-50/50" />}
+                    {visibleColumns.summary?.includes('late_mins') && <SortHeader id="late_mins" label="遲到分鐘" align="center" className="bg-orange-50/50" />}
+                    {visibleColumns.summary?.includes('early_leave') && <SortHeader id="early_leave" label="早退次數" align="center" className="bg-amber-50/50" />}
+                    {visibleColumns.summary?.includes('early_leave_hours') && <SortHeader id="early_leave_hours" label="早退小時" align="center" className="bg-amber-50/50" />}
+                    {visibleColumns.summary?.includes('absent') && <SortHeader id="absent" label="曠職次數" align="center" className="bg-red-50/50" />}
+                    {visibleColumns.summary?.includes('absent_hours') && <SortHeader id="absent_hours" label="曠職時數" align="center" className="bg-red-50/50" />}
+                    {visibleColumns.summary?.includes('overtime') && <SortHeader id="overtime" label="總加班時數" align="center" className="bg-blue-50/50" />}
+                    {visibleColumns.summary?.includes('overtime1_hours') && <SortHeader id="overtime1_hours" label="1階加班" align="center" className="bg-blue-50/50" />}
+                    {visibleColumns.summary?.includes('overtime2_hours') && <SortHeader id="overtime2_hours" label="2階加班" align="center" className="bg-blue-50/50" />}
+                    {visibleColumns.summary?.includes('holiday_overtime') && <SortHeader id="holiday_overtime" label="假日加班" align="center" className="bg-purple-50/50" />}
                     {visibleColumns.summary?.includes('leaves_detail') && <th className="px-4 py-2 text-left border-r border-gray-300">請假明細</th>}
                   </>
                 ) : (
                   <>
                     {allColumns.daily.filter(c => visibleColumns.daily?.includes(c.id)).map(col => (
-                      <th key={col.id} className="px-4 py-2 text-left border-r border-gray-300">{col.label}</th>
+                      <SortHeader key={col.id} id={col.id} label={col.label} align={['late_mins','early_mins','work_mins','overtime1','overtime2','holiday_overtime'].includes(col.id) ? 'center' : 'left'} />
                     ))}
                     <th className="px-4 py-2 text-center">操作</th>
                   </>
