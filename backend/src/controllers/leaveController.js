@@ -27,7 +27,7 @@ exports.getLeaveTypes = async (req, res) => {
 
 exports.createLeaveType = async (req, res) => {
   try {
-    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months } = req.body;
+    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months, calculation_mode } = req.body;
     const type = await req.db.leaveType.create({
       data: { 
         code, 
@@ -38,6 +38,7 @@ exports.createLeaveType = async (req, res) => {
         quota_type: quota_type || 'UNLIMITED',
         default_days: parseFloat(default_days) || 0,
         seniority_rules: seniority_rules || null,
+        calculation_mode: calculation_mode || 'CALENDAR',
         is_all_employees: is_all_employees ?? true,
         note,
         is_carry_over_enabled: Boolean(is_carry_over_enabled),
@@ -56,7 +57,7 @@ exports.createLeaveType = async (req, res) => {
 
 exports.updateLeaveType = async (req, res) => {
   try {
-    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months } = req.body;
+    const { code, name, is_paid, deduction_ratio, deduction_base, quota_type, default_days, seniority_rules, is_all_employees, eligibleEmployeeIds, note, is_carry_over_enabled, carry_over_expiry_months, calculation_mode } = req.body;
     
     // 取得舊資料以供比對
     const oldType = await req.db.leaveType.findUnique({
@@ -74,6 +75,7 @@ exports.updateLeaveType = async (req, res) => {
         quota_type: quota_type || 'UNLIMITED',
         default_days: parseFloat(default_days) || 0,
         seniority_rules: seniority_rules || null,
+        calculation_mode: calculation_mode || 'CALENDAR',
         is_all_employees: is_all_employees ?? true,
         note,
         is_carry_over_enabled: Boolean(is_carry_over_enabled),
