@@ -9,6 +9,12 @@
  * 注意：此服務採「靜默失敗」設計，寫入日誌失敗不會影響主業務邏輯。
  */
 
+const safeStringify = (val) => {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'object') return JSON.stringify(val);
+  return String(val);
+};
+
 /**
  * 寫入一筆操作日誌
  * @param {object} db         - req.db (租戶資料庫連線)
@@ -44,8 +50,8 @@ exports.writeAuditLog = async (db, req, action, tableName, recordId, fieldName, 
         tableName,
         recordId:  parseInt(recordId) || 0,
         fieldName,
-        oldValue:  String(oldValue ?? ''),
-        newValue:  String(newValue ?? ''),
+        oldValue:  safeStringify(oldValue),
+        newValue:  safeStringify(newValue),
         note,
       }
     });
@@ -82,7 +88,7 @@ exports.writeAuditLogBatch = async (db, req, action, tableName, recordId, oldDat
 
     // 只記錄「有變動」的欄位
     const changedFields = Object.keys(newData).filter(
-      key => String(oldData[key] ?? '') !== String(newData[key] ?? '')
+      key => safeStringify(oldData[key]) !== safeStringify(newData[key])
     );
 
     if (changedFields.length === 0) return;
@@ -91,8 +97,8 @@ exports.writeAuditLogBatch = async (db, req, action, tableName, recordId, oldDat
     const oldValuesObj = {};
     const newValuesObj = {};
     changedFields.forEach(field => {
-      oldValuesObj[field] = String(oldData[field] ?? '');
-      newValuesObj[field] = String(newData[field] ?? '');
+      oldValuesObj[field] = safeStringify(oldData[field]);
+      newValuesObj[field] = safeStringify(newData[field]);
     });
 
     await db.auditLog.create({
