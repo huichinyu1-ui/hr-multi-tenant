@@ -830,7 +830,12 @@ export default function Leaves() {
                         <div>{q.leaveType.name}</div>
                         {q.valid_from && q.valid_to && (
                           <div className="text-[10px] text-gray-400 font-mono mt-0.5 whitespace-nowrap">
-                            有效: {q.valid_from} ~ {q.valid_to}
+                            本年度有效: {q.valid_from} ~ {q.valid_to}
+                          </div>
+                        )}
+                        {q.carry_over_valid_from && q.carry_over_valid_to && (
+                          <div className="text-[10px] text-orange-400 font-mono mt-0.5 whitespace-nowrap">
+                            結轉有效: {q.carry_over_valid_from} ~ {q.carry_over_valid_to}
                           </div>
                         )}
                       </td>

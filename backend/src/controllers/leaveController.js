@@ -328,8 +328,16 @@ exports.getLeaveQuotas = async (req, res) => {
         leaveTypeId: q.leaveTypeId,
         status: 'APPROVED'
       };
+      const orConditions = [];
       if (q.valid_from && q.valid_to) {
-        requestWhere.start_date = { gte: q.valid_from, lte: q.valid_to };
+        orConditions.push({ start_date: { gte: q.valid_from, lte: q.valid_to } });
+      }
+      if (q.carry_over_valid_from && q.carry_over_valid_to) {
+        orConditions.push({ start_date: { gte: q.carry_over_valid_from, lte: q.carry_over_valid_to } });
+      }
+
+      if (orConditions.length > 0) {
+        requestWhere.OR = orConditions;
       } else {
         requestWhere.start_date = { startsWith: targetYear.toString() };
       }
@@ -375,43 +383,44 @@ exports.getLeaveQuotas = async (req, res) => {
   }
 };
 
-exports.updateLeaveQuota = async (req, res) => {
-  try {
-    const { employeeId, leaveTypeId, year, total_hours, carried_over_hours, annual_hours } = req.body;
-    const cHours = parseFloat(carried_over_hours) || 0;
-    const aHours = parseFloat(annual_hours) || 0;
-    const tHours = cHours + aHours || parseFloat(total_hours) || 0;
-
-    // 建立前先查詢舊值，供日誌記錄
-    const existing = await req.db.leaveQuota.findUnique({
-      where: {
-        employeeId_leaveTypeId_year: {
+  exports.updateLeaveQuota = async (req, res) => {
+    try {
+      const { employeeId, leaveTypeId, year, total_hours, carried_over_hours, annual_hours, valid_from, valid_to, carry_over_valid_from, carry_over_valid_to } = req.body;
+      const cHours = parseFloat(carried_over_hours) || 0;
+      const aHours = parseFloat(annual_hours) || 0;
+      const tHours = cHours + aHours || parseFloat(total_hours) || 0;
+  
+      // 建立前先查詢舊值，供日誌記錄
+      const existing = await req.db.leaveQuota.findUnique({
+        where: {
+          employeeId_leaveTypeId_year: {
+            employeeId: parseInt(employeeId),
+            leaveTypeId: parseInt(leaveTypeId),
+            year: parseInt(year)
+          }
+        }
+      });
+      const oldTotalHours = existing?.total_hours ?? null;
+  
+      const quota = await req.db.leaveQuota.upsert({
+        where: {
+          employeeId_leaveTypeId_year: {
+            employeeId: parseInt(employeeId),
+            leaveTypeId: parseInt(leaveTypeId),
+            year: parseInt(year)
+          }
+        },
+        update: { total_hours: tHours, carried_over_hours: cHours, annual_hours: aHours, valid_from, valid_to, carry_over_valid_from, carry_over_valid_to },
+        create: {
           employeeId: parseInt(employeeId),
           leaveTypeId: parseInt(leaveTypeId),
-          year: parseInt(year)
+          year: parseInt(year),
+          total_hours: tHours,
+          carried_over_hours: cHours,
+          annual_hours: aHours,
+          valid_from, valid_to, carry_over_valid_from, carry_over_valid_to
         }
-      }
-    });
-    const oldTotalHours = existing?.total_hours ?? null;
-
-    const quota = await req.db.leaveQuota.upsert({
-      where: {
-        employeeId_leaveTypeId_year: {
-          employeeId: parseInt(employeeId),
-          leaveTypeId: parseInt(leaveTypeId),
-          year: parseInt(year)
-        }
-      },
-      update: { total_hours: tHours, carried_over_hours: cHours, annual_hours: aHours },
-      create: {
-        employeeId: parseInt(employeeId),
-        leaveTypeId: parseInt(leaveTypeId),
-        year: parseInt(year),
-        total_hours: tHours,
-        carried_over_hours: cHours,
-        annual_hours: aHours
-      }
-    });
+      });
 
     // 寫入稽核日誌（僅在有變動時記錄）
     if (oldTotalHours === null || oldTotalHours !== tHours) {
@@ -579,8 +588,10 @@ exports.exportLeaves = async (req, res) => {
         { header: '總額度(天)', key: 'total', width: 12 },
         { header: '已使用(天)', key: 'used', width: 12 },
         { header: '剩餘額度(天)', key: 'remaining', width: 12 },
-        { header: '有效起日', key: 'valid_from', width: 15 },
-        { header: '有效迄日', key: 'valid_to', width: 15 }
+        { header: '本年度起日', key: 'valid_from', width: 15 },
+        { header: '本年度迄日', key: 'valid_to', width: 15 },
+        { header: '結轉有效起日', key: 'carry_over_valid_from', width: 15 },
+        { header: '結轉有效迄日', key: 'carry_over_valid_to', width: 15 }
       ];
 
       const year = new Date().getFullYear();
@@ -600,8 +611,16 @@ exports.exportLeaves = async (req, res) => {
         if (ns && !q.employee?.name?.toLowerCase().includes(ns) && !q.employee?.code?.toLowerCase().includes(ns)) continue;
 
         let reqWhere = { employeeId: q.employeeId, leaveTypeId: q.leaveTypeId, status: 'APPROVED' };
+        const orConditions = [];
         if (q.valid_from && q.valid_to) {
-          reqWhere.start_date = { gte: q.valid_from, lte: q.valid_to };
+          orConditions.push({ start_date: { gte: q.valid_from, lte: q.valid_to } });
+        }
+        if (q.carry_over_valid_from && q.carry_over_valid_to) {
+          orConditions.push({ start_date: { gte: q.carry_over_valid_from, lte: q.carry_over_valid_to } });
+        }
+
+        if (orConditions.length > 0) {
+          reqWhere.OR = orConditions;
         } else {
           reqWhere.start_date = { startsWith: year.toString() };
         }
@@ -625,10 +644,12 @@ exports.exportLeaves = async (req, res) => {
           name: q.employee?.name,
           type: q.leaveType?.name,
           total: q.total_hours / 8,
-          used: usedHours / 8,
-          remaining: (q.total_hours - usedHours) / 8,
-          valid_from: q.valid_from || `${year}-01-01`,
-          valid_to: q.valid_to || `${year}-12-31`
+          used: Math.round(usedHours) / 8,
+          remaining: Math.round(((q.carried_over_hours||0) + (q.annual_hours||0)) - usedHours) / 8,
+          valid_from: q.valid_from || '',
+          valid_to: q.valid_to || '',
+          carry_over_valid_from: q.carry_over_valid_from || '',
+          carry_over_valid_to: q.carry_over_valid_to || ''
         });
       }
     } else if (activeTab === 'settings') {
@@ -905,14 +926,21 @@ exports.carryOverQuotas = async (req, res) => {
               year: targetYear
             }
           },
-          update: { carried_over_hours: remaining, total_hours: newTotal },
+          update: { 
+            carried_over_hours: remaining, 
+            total_hours: newTotal,
+            carry_over_valid_from: `${targetYear}-01-01`,
+            carry_over_valid_to: `${targetYear}-12-31`
+          },
           create: {
             employeeId: q.employeeId,
             leaveTypeId: q.leaveTypeId,
             year: targetYear,
             carried_over_hours: remaining,
             annual_hours: aHours,
-            total_hours: newTotal
+            total_hours: newTotal,
+            carry_over_valid_from: `${targetYear}-01-01`,
+            carry_over_valid_to: `${targetYear}-12-31`
           }
         }));
         count++;
