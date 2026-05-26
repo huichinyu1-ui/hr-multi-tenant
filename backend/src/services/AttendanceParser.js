@@ -2,21 +2,51 @@ const xlsx = require('xlsx');
 
 function formatExcelDate(serial) {
   if (!serial || typeof serial !== 'number') return null;
-  // Use xlsx SSF for robust date conversion
   const parsed = xlsx.SSF.parse_date_code(serial);
   if (!parsed) return null;
   return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
 }
 
-function formatExcelTime(fraction) {
-  if (fraction === undefined || fraction === null) return null;
-  if (typeof fraction === 'string') return fraction.replace(/[^\d:]/g, '').trim(); // Handle already string "HH:mm"
-  if (typeof fraction !== 'number') return null;
-  
-  const totalMinutes = Math.round(fraction * 24 * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+function formatExcelTime(val) {
+  if (val === undefined || val === null || val === '') return null;
+  // Already a string like "07:24"
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/[^\d:]/g, '').trim();
+    return cleaned.length >= 3 ? cleaned : null;
+  }
+  // Numeric fraction (Excel time serial)
+  if (typeof val === 'number') {
+    const totalMinutes = Math.round(val * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  }
+  return null;
+}
+
+// Resolve "05-01" + year => "2026-05-01"
+function resolveDateString(val, year) {
+  if (!val) return null;
+  const str = String(val).trim();
+  // Already full date YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // MM-DD format
+  if (/^\d{2}-\d{2}$/.test(str)) {
+    return `${year}-${str}`;
+  }
+  // Numeric serial
+  if (typeof val === 'number' && val > 40000) return formatExcelDate(val);
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0];
+  }
+  return null;
+}
+
+// Extract year from employee header string, e.g. "日期:2026-05-01 ~ 2026-05-22"
+function extractYearFromHeader(rowStr) {
+  const m = rowStr.match(/(\d{4})-\d{2}-\d{2}/);
+  if (m) return parseInt(m[1]);
+  return new Date().getFullYear(); // fallback to current year
 }
 
 class AttendanceParser {
@@ -28,66 +58,76 @@ class AttendanceParser {
 
     const records = [];
     let currentEmployeeCode = null;
+    let currentYear = new Date().getFullYear();
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
 
-      // Detect employee block (Look in Col 0, 1 or 2 due to merged cells)
-      const firstColsStr = (row[0] || row[1] || row[2] || '').toString();
-      if (firstColsStr.includes('工號:')) {
-        const codeMatch = firstColsStr.match(/工號:\s*([A-Za-z0-9]+)/);
+      // Build a combined string of the first few columns to detect header rows
+      const rowStr = [row[0], row[1], row[2], row[10], row[13]]
+        .map(v => String(v || '')).join(' ');
+
+      // --- Detect employee block header ---
+      if (rowStr.includes('工號:')) {
+        const codeMatch = rowStr.match(/工號:\s*([A-Za-z0-9]+)/);
         if (codeMatch) {
           currentEmployeeCode = codeMatch[1].trim();
         }
+        // Try to extract year from date range in this row
+        currentYear = extractYearFromHeader(rowStr);
         continue;
       }
 
-      // If we are inside an employee block and hit a date row
-      // The date column is Index 0 (Left) and Index 8 (Right)
-      if (currentEmployeeCode) {
-        // Left side: Day 1-16 (Date at index 0, times at 2-7)
-        if (row[0] instanceof Date || (typeof row[0] === 'number' && row[0] > 40000)) {
-           this.extractRecord(currentEmployeeCode, row, 0, records);
-        }
-        // Right side: Day 17-31 (Date at index 8, times at 10-15)
-        if (row[8] instanceof Date || (typeof row[8] === 'number' && row[8] > 40000)) {
-           this.extractRecord(currentEmployeeCode, row, 8, records);
-        }
+      // Skip non-data rows (headers, summary, empty)
+      if (!currentEmployeeCode) continue;
+
+      // --- Try to parse left side (date at col 0) ---
+      const leftDate = resolveDateString(row[0], currentYear);
+      if (leftDate) {
+        this.extractRecord(currentEmployeeCode, row, 0, leftDate, records);
+      }
+
+      // --- Try to parse right side (date at col 8) ---
+      const rightDate = resolveDateString(row[8], currentYear);
+      if (rightDate) {
+        this.extractRecord(currentEmployeeCode, row, 8, rightDate, records);
       }
     }
 
     return records;
   }
 
-  static extractRecord(empCode, row, startCol, records) {
-    const dateSerial = row[startCol];
-    if (!dateSerial || typeof dateSerial !== 'number') return;
-    const dateStr = formatExcelDate(dateSerial);
+  static extractRecord(empCode, row, startCol, dateStr, records) {
     if (!dateStr) return;
 
-    // 定義上班與下班的欄位索引 (相對於 startCol)
-    const inCols = [2, 4, 6];
-    const outCols = [3, 5, 7];
+    // Time column offsets relative to dateCol:
+    // Left side (startCol=0):  上班[2,4,6], 下班[3,5,7]
+    // Right side (startCol=8): 上班[10,12,14], 下班[11,13,15]
+    let inOffsets, outOffsets;
+    if (startCol === 0) {
+      inOffsets  = [2, 4, 6];
+      outOffsets = [3, 5, 7];
+    } else {
+      inOffsets  = [2, 4, 6];   // relative to startCol
+      outOffsets = [3, 5, 7];
+    }
 
-    const inTimes = [];
+    const inTimes  = [];
     const outTimes = [];
 
-    inCols.forEach(offset => {
+    inOffsets.forEach(offset => {
       const t = formatExcelTime(row[startCol + offset]);
       if (t) inTimes.push(t);
     });
-
-    outCols.forEach(offset => {
+    outOffsets.forEach(offset => {
       const t = formatExcelTime(row[startCol + offset]);
       if (t) outTimes.push(t);
     });
 
     if (inTimes.length > 0 || outTimes.length > 0) {
-      // 上班取最早，下班取最晚
-      const clockIn = inTimes.length > 0 ? inTimes.sort()[0] : null;
+      const clockIn  = inTimes.length  > 0 ? inTimes.sort()[0]  : null;
       const clockOut = outTimes.length > 0 ? outTimes.sort()[outTimes.length - 1] : null;
-
       records.push({
         employee_code: empCode,
         date: dateStr,
