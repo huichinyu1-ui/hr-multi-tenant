@@ -5,11 +5,11 @@ async function updateTenantDbs() {
   const companies = await centralClient.company.findMany();
   
   const queries = [
-    `ALTER TABLE "RolePermission" ADD COLUMN "canApprove" BOOLEAN NOT NULL DEFAULT 0;`,
-    `ALTER TABLE "RolePermission" ADD COLUMN "canImport" BOOLEAN NOT NULL DEFAULT 0;`,
-    `ALTER TABLE "RolePermission" ADD COLUMN "canManagePayroll" BOOLEAN NOT NULL DEFAULT 0;`,
-    `ALTER TABLE "RolePermission" ADD COLUMN "canManageRole" BOOLEAN NOT NULL DEFAULT 0;`,
-    `ALTER TABLE "RolePermission" ADD COLUMN "canManageMetadata" BOOLEAN NOT NULL DEFAULT 0;`
+    `ALTER TABLE "LeaveQuota" ADD COLUMN "valid_from" TEXT;`,
+    `ALTER TABLE "LeaveQuota" ADD COLUMN "valid_to" TEXT;`,
+    `ALTER TABLE "LeaveQuota" ADD COLUMN "carry_over_valid_from" TEXT;`,
+    `ALTER TABLE "LeaveQuota" ADD COLUMN "carry_over_valid_to" TEXT;`,
+    `ALTER TABLE "LeaveType" ADD COLUMN "calculation_mode" TEXT DEFAULT 'CALENDAR';`
   ];
 
   for (const company of companies) {

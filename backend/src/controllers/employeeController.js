@@ -17,10 +17,20 @@ exports.getAllEmployees = async (req, res) => {
       where = { id: selfOnlyId };
     }
       
-    const employees = await req.db.employee.findMany({
-      where,
-      include: { workShift: true, overrides: true, leaveQuotas: true }
-    });
+    let employees;
+    try {
+      employees = await req.db.employee.findMany({
+        where,
+        include: { workShift: true, overrides: true, leaveQuotas: true }
+      });
+    } catch (includeErr) {
+      // leaveQuotas 欄位可能尚未遷移，回退為不含額度的查詢
+      console.warn('[getAllEmployees] leaveQuotas include failed, retrying without:', includeErr.message);
+      employees = await req.db.employee.findMany({
+        where,
+        include: { workShift: true, overrides: true }
+      });
+    }
 
     const d = new Date();
     const taiwanTime = new Date(d.getTime() + (8 * 3600000));

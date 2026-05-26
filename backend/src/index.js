@@ -73,6 +73,36 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
+// 一次性資料庫遷移端點（供 HR 管理員初始化新欄位使用）
+app.post('/api/migrate-db', async (req, res) => {
+  const companyCode = req.headers['x-company-code'];
+  if (!companyCode) return res.status(400).json({ error: '未提供公司代碼' });
+  try {
+    const { getCompanyClient } = require('./db_manager');
+    const db = await getCompanyClient(companyCode);
+    const migrations = [
+      `ALTER TABLE "LeaveQuota" ADD COLUMN "valid_from" TEXT`,
+      `ALTER TABLE "LeaveQuota" ADD COLUMN "valid_to" TEXT`,
+      `ALTER TABLE "LeaveQuota" ADD COLUMN "carry_over_valid_from" TEXT`,
+      `ALTER TABLE "LeaveQuota" ADD COLUMN "carry_over_valid_to" TEXT`,
+      `ALTER TABLE "LeaveType" ADD COLUMN "calculation_mode" TEXT DEFAULT 'CALENDAR'`,
+    ];
+    const results = [];
+    for (const sql of migrations) {
+      try {
+        await db.$executeRawUnsafe(sql);
+        results.push({ sql: sql.split('ADD COLUMN')[1]?.trim(), status: 'ok' });
+      } catch(e) {
+        results.push({ sql: sql.split('ADD COLUMN')[1]?.trim(), status: e.message.includes('duplicate') ? 'already_exists' : 'error', msg: e.message });
+      }
+    }
+    res.json({ message: '遷移完成', results });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 app.get('/', (req, res) => {
   res.send('Payroll API is running (Multi-Tenant Edition)');
 });
