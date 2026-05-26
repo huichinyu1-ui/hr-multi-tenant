@@ -879,9 +879,9 @@ export default function Leaves() {
                       </td>
                     )}
 
-                    {visibleColumns.quotas?.includes('total') && <td className="px-4 py-2 border-r border-gray-200 text-center font-black font-mono bg-gray-50/50">{Math.round((q.carried_over_hours||0) + (q.annual_hours||0))}h</td>}
-                    {visibleColumns.quotas?.includes('used') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold font-mono text-blue-600">{Math.round(q.used_days * 8)}h</td>}
-                    {visibleColumns.quotas?.includes('remaining') && <td className="px-4 py-2 border-r border-gray-200 text-center font-black font-mono text-emerald-600">{Math.round(((q.carried_over_hours||0) + (q.annual_hours||0)) - (q.used_days * 8))}h</td>}
+                    {visibleColumns.quotas?.includes('total') && <td className="px-4 py-2 border-r border-gray-200 text-center font-black font-mono bg-gray-50/50">{parseFloat(((q.carried_over_hours||0) + (q.annual_hours||0)).toFixed(1))}h</td>}
+                    {visibleColumns.quotas?.includes('used') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold font-mono text-blue-600">{parseFloat((q.used_days * 8).toFixed(1))}h</td>}
+                    {visibleColumns.quotas?.includes('remaining') && <td className="px-4 py-2 border-r border-gray-200 text-center font-black font-mono text-emerald-600">{parseFloat((((q.carried_over_hours||0) + (q.annual_hours||0)) - (q.used_days * 8)).toFixed(1))}h</td>}
                     {visibleColumns.quotas?.includes('usage') && (
                       <td className="px-4 py-2 min-w-[120px]">
                         <div className="flex items-center gap-2">
