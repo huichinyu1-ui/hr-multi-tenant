@@ -162,6 +162,7 @@ export default function Leaves() {
   const [quotaFilter, setQuotaFilter] = useState({ leaveTypeId: '' });
 
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [editingRequestId, setEditingRequestId] = useState(null);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   
   const [form, setForm] = useState({ 
@@ -170,6 +171,7 @@ export default function Leaves() {
   });
 
   const [showOvertimeModal, setShowOvertimeModal] = useState(false);
+  const [editingOtId, setEditingOtId] = useState(null);
   const [otForm, setOtForm] = useState({ 
     employeeId: '', date: '', start_time: '09:00', end_time: '18:00', reason: '' 
   });
@@ -213,8 +215,14 @@ export default function Leaves() {
     if (saving) return;
     setSaving(true);
     try {
-      await api.post('/overtime', otForm);
-      addToast('加班申請送出成功', 'success');
+      if (editingOtId) {
+        await api.put(`/overtime/${editingOtId}`, otForm);
+        addToast('加班申請更新成功', 'success');
+        setEditingOtId(null);
+      } else {
+        await api.post('/overtime', otForm);
+        addToast('加班申請送出成功', 'success');
+      }
       setShowOvertimeModal(false);
       fetchData();
     } catch (e) { addToast('送出失敗', 'error'); } finally { setSaving(false); }
@@ -354,12 +362,18 @@ export default function Leaves() {
     
     setSaving(true);
     try {
-      await api.post('/leaves/requests', form);
+      if (editingRequestId) {
+        await api.put(`/leaves/requests/${editingRequestId}`, form);
+        addToast('假單更新成功', 'success');
+        setEditingRequestId(null);
+      } else {
+        await api.post('/leaves/requests', form);
+        addToast('申請成功', 'success');
+      }
       setForm({ employeeId: canManage ? '' : user?.id, leaveTypeId: '', start_date: '', start_time: '08:00', end_date: '', end_time: '17:00', reason: '' });
-      addToast('申請成功', 'success');
       setShowRequestModal(false);
       fetchData();
-    } catch (e) { addToast('新增失敗: ' + (e.response?.data?.error || '資料格式錯誤'), 'error'); } finally { setSaving(false); }
+    } catch (e) { addToast('儲存失敗: ' + (e.response?.data?.error || '資料格式錯誤'), 'error'); } finally { setSaving(false); }
   };
 
   const handleUpdateStatus = async (id, status) => {
@@ -670,6 +684,23 @@ export default function Leaves() {
                     )}
                     <td className="px-4 py-1 text-center">
                       <div className="flex gap-3 justify-center">
+                        {canManage && req.status === 'PENDING' && (
+                           <button onClick={() => {
+                             setForm({
+                               employeeId: req.employeeId,
+                               leaveTypeId: req.leaveTypeId,
+                               start_date: req.start_date,
+                               start_time: req.start_time,
+                               end_date: req.end_date,
+                               end_time: req.end_time,
+                               reason: req.reason || ''
+                             });
+                             setEditingRequestId(req.id);
+                             setShowRequestModal(true);
+                           }} className="text-indigo-600 hover:underline font-bold flex items-center gap-1">
+                             <Settings size={14}/> 編輯
+                           </button>
+                        )}
                         {canApprove ? (
                           req.status === 'PENDING' ? (
                             <>
@@ -689,7 +720,7 @@ export default function Leaves() {
                             </button>
                           )
                         ) : (
-                          <span className="text-xs text-gray-400">—</span>
+                          !canManage && <span className="text-xs text-gray-400">—</span>
                         )}
                       </div>
                     </td>
@@ -743,6 +774,21 @@ export default function Leaves() {
                     )}
                     <td className="px-4 py-1 text-center">
                       <div className="flex gap-3 justify-center">
+                        {canManage && req.status === 'PENDING' && (
+                           <button onClick={() => {
+                             setOtForm({
+                               employeeId: req.employeeId,
+                               date: req.date,
+                               start_time: req.start_time,
+                               end_time: req.end_time,
+                               reason: req.reason || ''
+                             });
+                             setEditingOtId(req.id);
+                             setShowOvertimeModal(true);
+                           }} className="text-indigo-600 hover:underline font-bold flex items-center gap-1">
+                             <Settings size={14}/> 編輯
+                           </button>
+                        )}
                         {canApprove ? (
                           req.status === 'PENDING' ? (
                             <>
@@ -931,12 +977,12 @@ export default function Leaves() {
 
       {/* Modal: New Request */}
       {showRequestModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4" onClick={() => setShowRequestModal(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4" onClick={() => { setShowRequestModal(false); setEditingRequestId(null); }}>
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl animate-in zoom-in duration-300 overflow-hidden border border-gray-200" onClick={e=>e.stopPropagation()}>
             <div className="bg-indigo-600 p-8 text-white relative">
-              <h2 className="text-2xl font-black">建立假單/加班單</h2>
+              <h2 className="text-2xl font-black">{editingRequestId ? '編輯請假單' : '建立假單/加班單'}</h2>
               <p className="text-indigo-100 text-xs md:text-sm mt-1 font-bold">請輸入正確的日期與時間，系統將自動計算時數</p>
-              <button onClick={()=>setShowRequestModal(false)} className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors"><X/></button>
+              <button onClick={()=> { setShowRequestModal(false); setEditingRequestId(null); }} className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors"><X/></button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="grid grid-cols-2 gap-6">

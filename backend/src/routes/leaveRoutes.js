@@ -10,7 +10,8 @@ router.put('/types/:id', checkPermission('LEAVE_TYPE', 'canEdit'), leaveControll
 router.delete('/types/:id', checkPermission('LEAVE_TYPE', 'canDelete'), leaveController.deleteLeaveType);
 
 router.get('/requests', checkPermission('LEAVE', 'canView'), leaveController.getLeaveRequests);
-router.post('/requests', leaveController.createLeaveRequest);
+router.post('/requests', checkPermission('LEAVE', 'canCreate'), leaveController.createLeaveRequest);
+router.put('/requests/:id', checkPermission('LEAVE', 'canEdit'), leaveController.updateLeaveRequest);
 router.put('/requests/:id/status', checkPermission('LEAVE', 'canApprove'), leaveController.updateLeaveRequestStatus);
 router.delete('/requests/batch', checkPermission('LEAVE', 'canDelete'), leaveController.batchDeleteLeaveRequests);
 router.delete('/requests/:id', leaveController.deleteLeaveRequest);

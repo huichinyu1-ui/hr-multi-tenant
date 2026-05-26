@@ -238,6 +238,37 @@ exports.createLeaveRequest = async (req, res) => {
   }
 };
 
+exports.updateLeaveRequest = async (req, res) => {
+  try {
+    const { employeeId, leaveTypeId, start_date, start_time, end_date, end_time, reason, status } = req.body;
+    
+    const start = new Date(`${start_date}T${start_time || '08:00'}`);
+    const end = new Date(`${end_date}T${end_time || '17:00'}`);
+
+    if (start > end) {
+      return res.status(400).json({ error: '結束時間不能早於開始時間' });
+    }
+
+    const request = await req.db.leaveRequest.update({
+      where: { id: parseInt(req.params.id) },
+      data: { 
+        employeeId: parseInt(employeeId), 
+        leaveTypeId: parseInt(leaveTypeId), 
+        start_date, 
+        start_time: start_time || '08:00',
+        end_date, 
+        end_time: end_time || '17:00',
+        reason,
+        status: status || 'PENDING' 
+      }
+    });
+    res.json(request);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '修改請假單失敗' });
+  }
+};
+
 exports.updateLeaveRequestStatus = async (req, res) => {
   try {
     const { status } = req.body;

@@ -39,6 +39,32 @@ exports.createRequest = async (req, res) => {
   }
 };
 
+exports.updateRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { employeeId, date, start_time, end_time, reason, status } = req.body;
+    if (!employeeId || !date || !start_time || !end_time) {
+      return res.status(400).json({ error: '欄位不完整' });
+    }
+
+    const request = await req.db.overtimeRequest.update({
+      where: { id: parseInt(id) },
+      data: { 
+        employeeId: parseInt(employeeId), 
+        date, 
+        start_time, 
+        end_time, 
+        reason,
+        status: status || 'PENDING'
+      }
+    });
+    res.json(request);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '修改失敗' });
+  }
+};
+
 exports.updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
