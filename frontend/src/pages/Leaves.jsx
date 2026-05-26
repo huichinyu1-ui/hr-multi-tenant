@@ -255,34 +255,54 @@ export default function Leaves() {
     } catch (e) { console.error(e); }
   };
 
-  const handleInlineQuotaUpdate = (q, field, value) => {
-    setQuotas(prev => prev.map(item => item.id === q.id ? { ...item, [field]: value === '' ? '' : parseFloat(value) || 0 } : item));
+  const saveInlineQuotaField = async (q, field, newValue) => {
+    return new Promise(resolve => {
+      setTimeout(async () => {
+        if (!window.confirm(`確定要手動調整員工【${q.employee?.name || '此位員工'}】的額度嗎？\n請確認數值無誤，避免影響員工權益。`)) {
+          resolve(false);
+          return;
+        }
+        try {
+          const payload = {
+            employeeId: q.employeeId,
+            leaveTypeId: q.leaveTypeId,
+            year: q.year,
+            carried_over_hours: field === 'carried_over_hours' ? parseFloat(newValue) || 0 : parseFloat(q.carried_over_hours) || 0,
+            annual_hours: field === 'annual_hours' ? parseFloat(newValue) || 0 : parseFloat(q.annual_hours) || 0
+          };
+          payload.total_hours = payload.carried_over_hours + payload.annual_hours;
+          
+          await api.post('/leaves/quotas', payload);
+          addToast('額度調整已儲存', 'success');
+          fetchQuotas(); // 更新畫面狀態
+          resolve(true);
+        } catch (e) {
+          addToast('儲存額度失敗', 'error');
+          fetchQuotas();
+          resolve(false);
+        }
+      }, 50);
+    });
   };
 
-  const saveInlineQuota = (q) => {
-    // 使用 setTimeout 讓瀏覽器的 blur 事件先行完成，避免 window.confirm 造成無窮迴圈或畫面死當
-    setTimeout(async () => {
-      if (!window.confirm(`確定要手動調整員工【${q.employee?.name || '此位員工'}】的額度嗎？\n請確認數值無誤，避免影響員工權益。`)) {
-        fetchQuotas(); // 復原
-        return;
-      }
-      try {
-        const payload = {
-          employeeId: q.employeeId,
-          leaveTypeId: q.leaveTypeId,
-          year: q.year,
-          carried_over_hours: parseFloat(q.carried_over_hours) || 0,
-          annual_hours: parseFloat(q.annual_hours) || 0,
-          total_hours: (parseFloat(q.carried_over_hours) || 0) + (parseFloat(q.annual_hours) || 0)
-        };
-        await api.post('/leaves/quotas', payload);
-        addToast('額度調整已儲存', 'success');
-        fetchQuotas(); // 更新畫面狀態
-      } catch (e) {
-        addToast('儲存額度失敗', 'error');
-        fetchQuotas();
-      }
-    }, 50);
+  const ControlledNumberInput = ({ initialValue, onSave, className }) => {
+    const [val, setVal] = React.useState(initialValue === null || initialValue === undefined ? '' : initialValue);
+    React.useEffect(() => { setVal(initialValue === null || initialValue === undefined ? '' : initialValue); }, [initialValue]);
+    return (
+      <input 
+        type="number" 
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={async () => {
+          if (parseFloat(val || 0) !== parseFloat(initialValue || 0)) {
+            const success = await onSave(val);
+            if (!success) setVal(initialValue === null || initialValue === undefined ? '' : initialValue);
+          }
+        }}
+        className={className}
+        placeholder="0"
+      />
+    );
   };
 
   const handleAutoCalcQuotas = async () => {
@@ -820,13 +840,10 @@ export default function Leaves() {
                       <td className="px-2 py-1 border-r border-gray-200 text-center bg-orange-50/20">
                         {canManage ? (
                           <div className="flex items-center justify-center gap-1">
-                            <input 
-                              type="number" 
+                            <ControlledNumberInput 
+                              initialValue={q.carried_over_hours}
+                              onSave={(val) => saveInlineQuotaField(q, 'carried_over_hours', val)}
                               className="w-16 text-center border border-gray-300 rounded font-mono font-bold text-orange-600 px-1 py-1 text-sm bg-white hover:border-orange-400 focus:border-orange-500 outline-none transition-colors"
-                              value={q.carried_over_hours === '' ? '' : (q.carried_over_hours || 0)}
-                              onChange={(e) => handleInlineQuotaUpdate(q, 'carried_over_hours', e.target.value)}
-                              onBlur={() => saveInlineQuota(q)}
-                              placeholder="0"
                             />
                             <span className="text-xs text-gray-400 font-bold">h</span>
                           </div>
@@ -840,13 +857,10 @@ export default function Leaves() {
                       <td className="px-2 py-1 border-r border-gray-200 text-center bg-indigo-50/20">
                         {canManage ? (
                           <div className="flex items-center justify-center gap-1">
-                            <input 
-                              type="number" 
+                            <ControlledNumberInput 
+                              initialValue={q.annual_hours}
+                              onSave={(val) => saveInlineQuotaField(q, 'annual_hours', val)}
                               className="w-16 text-center border border-gray-300 rounded font-mono font-bold text-indigo-600 px-1 py-1 text-sm bg-white hover:border-indigo-400 focus:border-indigo-500 outline-none transition-colors"
-                              value={q.annual_hours === '' ? '' : (q.annual_hours || 0)}
-                              onChange={(e) => handleInlineQuotaUpdate(q, 'annual_hours', e.target.value)}
-                              onBlur={() => saveInlineQuota(q)}
-                              placeholder="0"
                             />
                             <span className="text-xs text-gray-400 font-bold">h</span>
                           </div>
