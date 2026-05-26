@@ -268,7 +268,11 @@ export default function Leaves() {
             leaveTypeId: q.leaveTypeId,
             year: q.year,
             carried_over_hours: field === 'carried_over_hours' ? parseFloat(newValue) || 0 : parseFloat(q.carried_over_hours) || 0,
-            annual_hours: field === 'annual_hours' ? parseFloat(newValue) || 0 : parseFloat(q.annual_hours) || 0
+            annual_hours: field === 'annual_hours' ? parseFloat(newValue) || 0 : parseFloat(q.annual_hours) || 0,
+            valid_from: q.valid_from,
+            valid_to: q.valid_to,
+            carry_over_valid_from: q.carry_over_valid_from || `${q.year}-01-01`,
+            carry_over_valid_to: q.carry_over_valid_to || `${q.year}-12-31`
           };
           payload.total_hours = payload.carried_over_hours + payload.annual_hours;
           
