@@ -335,7 +335,7 @@ export default function Attendance() {
     const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(s.employee?.id);
     const matchesNameSearch = !nameSearch || s.employee?.name?.includes(nameSearch) || s.employee?.code?.includes(nameSearch);
     return matchesEmp && matchesNameSearch;
-  });
+  }), true);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) setSelectedIds(filteredRecords.map(r => r.id));
