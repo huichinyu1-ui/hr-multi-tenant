@@ -148,18 +148,18 @@ export default function LeaveTypes() {
   };
 
   const variables = [
-    { label: '本薪', value: '{base_salary}' },
-    { label: '全勤獎金', value: '{full_attendance_bonus}' },
-    { label: '生產獎金', value: '{production_bonus}' },
-    { label: '績效獎金', value: '{performance_bonus}' },
-    { label: '伙食津貼', value: '{meal_allowance}' },
-    { label: '三節獎金', value: '{festival_bonus}' },
-    { label: '自訂 1', value: '{custom_1}' },
-    { label: '自訂 2', value: '{custom_2}' },
-    { label: '自訂 3', value: '{custom_3}' },
-    { label: '自訂 4', value: '{custom_4}' },
-    { label: '自訂 5', value: '{custom_5}' },
-    { label: '自訂 6', value: '{custom_6}' }
+    { label: '合約基本薪資', value: '{base_salary}' },
+    { label: '合約全勤獎金', value: '{original_full_attendance_bonus}' },
+    { label: '合約生產獎金', value: '{original_production_bonus}' },
+    { label: '合約績效獎金', value: '{original_performance_bonus}' },
+    { label: '合約伙食津貼', value: '{original_meal_allowance}' },
+    { label: '合約三節獎金', value: '{original_festival_bonus}' },
+    { label: '合約自訂 1', value: '{original_custom_1}' },
+    { label: '合約自訂 2', value: '{original_custom_2}' },
+    { label: '合約自訂 3', value: '{original_custom_3}' },
+    { label: '合約自訂 4', value: '{original_custom_4}' },
+    { label: '合約自訂 5', value: '{original_custom_5}' },
+    { label: '合約自訂 6', value: '{original_custom_6}' }
   ];
 
   const renderForm = () => (
