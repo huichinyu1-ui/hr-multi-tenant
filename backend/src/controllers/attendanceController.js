@@ -265,9 +265,17 @@ exports.getSummary = async (req, res) => {
       selfOnlyId = (!isSuperUser && userId) ? parseInt(userId) : undefined;
     }
 
-    const employees = await req.db.employee.findMany({
-      where: { status: 'ACTIVE', id: selfOnlyId }
-    });
+    // 包含在職員工，以及「查詢期間內有到班紀錄」的離職員工
+    const periodStart = start_date || `${year_month}-01`;
+    const empWhere = {
+      OR: [
+        { status: 'ACTIVE' },
+        { status: 'RESIGNED', resign_date: { gte: periodStart } }
+      ]
+    };
+    if (selfOnlyId) empWhere.id = selfOnlyId;
+
+    const employees = await req.db.employee.findMany({ where: empWhere });
 
     const AttendanceMatcher = require('../services/AttendanceMatcher');
     let summaries;
@@ -364,8 +372,14 @@ exports.exportAttendanceSummary = async (req, res) => {
       ];
       sheet.columns = columns;
 
-      // 取得員工資料
-      const empWhere = { status: 'ACTIVE' };
+      // 包含在職員工 + 期間內離職的員工
+      const periodStart2 = start_date || (year_month ? `${year_month}-01` : undefined);
+      const empWhere = {
+        OR: [
+          { status: 'ACTIVE' },
+          ...(periodStart2 ? [{ status: 'RESIGNED', resign_date: { gte: periodStart2 } }] : [])
+        ]
+      };
       if (selfOnlyId) empWhere.id = selfOnlyId;
       if (selectedEmpIds) {
         empWhere.id = { in: selectedEmpIds.split(',').map(id => parseInt(id)) };
