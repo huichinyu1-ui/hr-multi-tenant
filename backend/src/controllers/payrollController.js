@@ -11,8 +11,15 @@ exports.calculatePayroll = async (req, res) => {
     });
     if (existingFinalized) return res.status(400).json({ error: '該月份已結案鎖定，無法重新計算' });
 
+    // 包含在職員工，以及當月有到班紀錄的離職員工（resign_date >= 當月1日）
+    const periodStart = year_month + '-01';
     const employees = await req.db.employee.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        OR: [
+          { status: 'ACTIVE' },
+          { status: 'RESIGNED', resign_date: { gte: periodStart } }
+        ]
+      },
       include: {
         overrides: true
       }
