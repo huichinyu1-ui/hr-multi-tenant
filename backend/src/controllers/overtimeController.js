@@ -103,3 +103,19 @@ exports.deleteRequest = async (req, res) => {
     res.status(500).json({ error: '刪除失敗' });
   }
 };
+
+exports.batchDeleteRequests = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({ error: '請提供有效的 IDs' });
+    }
+    await req.db.overtimeRequest.deleteMany({
+      where: { id: { in: ids } }
+    });
+    res.json({ message: `成功刪除 ${ids.length} 筆加班單` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '批次刪除失敗' });
+  }
+};

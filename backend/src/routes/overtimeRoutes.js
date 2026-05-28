@@ -9,6 +9,7 @@ router.get('/', checkPermission('LEAVE', 'canView'), overtimeController.getReque
 router.post('/', checkPermission('LEAVE', 'canCreate'), overtimeController.createRequest);
 router.put('/:id', checkPermission('LEAVE', 'canEdit'), overtimeController.updateRequest);
 router.put('/:id/status', checkPermission('LEAVE', 'canApprove'), overtimeController.updateStatus);
+router.delete('/batch', checkPermission('LEAVE', 'canDelete'), overtimeController.batchDeleteRequests);
 router.delete('/:id', checkPermission('LEAVE', 'canDelete'), overtimeController.deleteRequest);
 
 module.exports = router;

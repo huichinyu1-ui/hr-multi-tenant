@@ -387,9 +387,14 @@ export default function Leaves() {
 
   const handleBatchDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`確定要刪除選中的 ${selectedIds.length} 筆請假單嗎？此動作無法復原。`)) return;
+    const typeName = activeTab === 'requests' ? '請假單' : '加班單';
+    if (!window.confirm(`確定要刪除選中的 ${selectedIds.length} 筆${typeName}嗎？此動作無法復原。`)) return;
     try {
-      await api.delete('/leaves/requests/batch', { data: { ids: selectedIds } });
+      if (activeTab === 'requests') {
+        await api.delete('/leaves/requests/batch', { data: { ids: selectedIds } });
+      } else if (activeTab === 'overtime') {
+        await api.delete('/overtime/batch', { data: { ids: selectedIds } });
+      }
       addToast('刪除成功', 'success');
       setSelectedIds([]);
       fetchData();
@@ -746,6 +751,16 @@ export default function Leaves() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#f8fafc] text-[12px] font-bold text-[#1e40af] border-b border-gray-300">
+                  <th className="w-10 p-2 border-r border-gray-300 text-center">
+                    <input 
+                      type="checkbox" 
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedIds(filteredOvertimeRequests.map(r => r.id));
+                        else setSelectedIds([]);
+                      }}
+                      checked={selectedIds.length === filteredOvertimeRequests.length && filteredOvertimeRequests.length > 0}
+                    />
+                  </th>
                   {visibleColumns.overtime?.includes('seq') && <SortHeader id="seq" label="#" align="center" className="w-12" /> }
                   {visibleColumns.overtime?.includes('code') && <SortHeader id="code" label="工號" /> }
                   {visibleColumns.overtime?.includes('name') && <SortHeader id="name" label="員工姓名" /> }
@@ -758,7 +773,17 @@ export default function Leaves() {
               </thead>
               <tbody className="text-xs md:text-sm">
                 {filteredOvertimeRequests.map((req, idx) => (
-                  <tr key={req.id} className="border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
+                  <tr key={req.id} className={`border-b border-gray-200 transition-colors ${selectedIds.includes(req.id) ? 'bg-indigo-50/50' : 'hover:bg-blue-50/30'}`}>
+                    <td className="p-2 border-r border-gray-200 text-center">
+                      <input 
+                        type="checkbox"
+                        checked={selectedIds.includes(req.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedIds([...selectedIds, req.id]);
+                          else setSelectedIds(selectedIds.filter(id => id !== req.id));
+                        }}
+                      />
+                    </td>
                     {visibleColumns.overtime?.includes('seq') && <td className="p-2 border-r border-gray-200 text-center text-gray-400 font-mono">{idx + 1}</td>}
                     {visibleColumns.overtime?.includes('code') && <td className="px-4 py-2 border-r border-gray-200 text-gray-400 font-mono">{req.employee?.code}</td>}
                     {visibleColumns.overtime?.includes('name') && <td className="px-4 py-2 border-r border-gray-200 font-bold text-gray-700">{req.employee?.name}</td>}
@@ -953,7 +978,7 @@ export default function Leaves() {
           已篩選出 {activeTab === 'requests' ? filteredRequests.length : activeTab === 'overtime' ? filteredOvertimeRequests.length : activeTab === 'quotas' ? filteredQuotas.length : 0} 筆資料
         </div>
         <div className="flex items-center gap-2">
-          {canDelete && selectedIds.length > 0 && activeTab === 'requests' && (
+          {canDelete && selectedIds.length > 0 && ['requests', 'overtime'].includes(activeTab) && (
             <button 
               onClick={handleBatchDelete}
               className="bg-rose-50 border border-rose-200 text-rose-600 px-4 py-2 rounded-xl text-xs md:text-sm font-bold hover:bg-rose-600 hover:text-white transition-all flex items-center gap-2 mr-4 shadow-sm"
