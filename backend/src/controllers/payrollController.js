@@ -119,8 +119,8 @@ exports.calculatePayroll = async (req, res) => {
 
         // 檢查套用範圍：
         // 只有在「沒有個人覆寫」的情況下，才受限於項目的套用範圍設定
-        if (!override && item.applied_employees && item.applied_employees.length > 0) {
-          const isApplied = item.applied_employees.some(a => Number(a.id) === Number(emp.id));
+        if (!override && item.is_global === false) {
+          const isApplied = item.applied_employees && item.applied_employees.some(a => Number(a.id) === Number(emp.id));
           if (!isApplied) {
             pool[item.code] = 0; // 確保變數池中該項目值為 0
             return;
