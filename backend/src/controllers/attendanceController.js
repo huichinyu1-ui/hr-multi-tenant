@@ -73,11 +73,11 @@ exports.uploadExcel = async (req, res) => {
       let final_punch_method = 'EXCEL';
 
       if (existingRecord) {
-        if (existingRecord.punch_method === 'WEB') {
-          // 線上打卡優先：如果原本該欄位已有時間，則跳過 Excel 覆蓋
+        if (existingRecord.punch_method === 'WEB' || existingRecord.punch_method === 'MANUAL') {
+          // 線上打卡或手動修改優先：如果原本該欄位已有時間，則跳過 Excel 覆蓋
           final_clock_in = existingRecord.clock_in ? existingRecord.clock_in : final_clock_in;
           final_clock_out = existingRecord.clock_out ? existingRecord.clock_out : final_clock_out;
-          final_punch_method = 'WEB'; // 保持線上打卡標記
+          final_punch_method = existingRecord.punch_method; // 保持既有標記
         }
       }
 
@@ -196,8 +196,14 @@ exports.updateDailyRecord = async (req, res) => {
     const updateData = {};
     if (status !== undefined) updateData.status = status;
     if (leave_code !== undefined) updateData.leave_code = leave_code;
-    if (clock_in !== undefined) updateData.clock_in = clock_in;
-    if (clock_out !== undefined) updateData.clock_out = clock_out;
+    if (clock_in !== undefined) {
+      updateData.clock_in = clock_in;
+      updateData.punch_method = 'MANUAL';
+    }
+    if (clock_out !== undefined) {
+      updateData.clock_out = clock_out;
+      updateData.punch_method = 'MANUAL';
+    }
 
     // 即時重新計算
     const simRecord = {
