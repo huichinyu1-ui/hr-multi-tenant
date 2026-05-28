@@ -286,12 +286,12 @@ exports.getSummary = async (req, res) => {
     const summary = employees.map(emp => {
       const sum = summaries[emp.id] || {};
       
-      // 解析假別
+      // 解析假別（改以「小時」為單位，最小單位 0.5h）
       const leaveDetails = Object.keys(sum)
-        .filter(k => k.endsWith('_leave_days') && sum[k] > 0)
+        .filter(k => k.endsWith('_leave_hours') && sum[k] > 0)
         .map(k => {
-          const code = k.replace('_leave_days', '').toUpperCase();
-          return { code, name: leaveTypeMap[code] || code, days: sum[k] };
+          const code = k.replace('_leave_hours', '').toUpperCase();
+          return { code, name: leaveTypeMap[code] || code, hours: sum[k] };
         });
 
       return {
@@ -381,8 +381,8 @@ exports.exportAttendanceSummary = async (req, res) => {
           summary = await AttendanceMatcher.calculateMonthlySummary(req.db, emp.id, year_month);
         }
         const leaveText = Object.keys(summary)
-          .filter(k => k.endsWith('_leave_days') && summary[k] > 0)
-          .map(k => `${k.replace('_leave_days', '').toUpperCase()}: ${summary[k]}天`)
+          .filter(k => k.endsWith('_leave_hours') && summary[k] > 0)
+          .map(k => `${k.replace('_leave_hours', '').toUpperCase()}: ${summary[k]}h`)
           .join(', ');
 
         sheet.addRow({

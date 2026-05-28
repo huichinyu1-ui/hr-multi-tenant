@@ -640,7 +640,7 @@ export default function Attendance() {
                       <td className="px-4 py-2 border-r border-gray-200 text-left text-xs">
                         {s.leaves?.length > 0 ? s.leaves.map(l => (
                           <span key={l.code} className="inline-block bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded mr-1 mb-1 font-bold border border-blue-200">
-                            {l.name}: {l.days}天
+                            {l.name}: {l.hours}h
                           </span>
                         )) : <span className="text-gray-400">無</span>}
                       </td>
