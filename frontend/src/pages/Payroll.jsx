@@ -273,6 +273,23 @@ export default function Payroll() {
     setEditDetails(newDetails);
   };
 
+  const handleAddDetail = (type) => {
+    setEditDetails([
+      ...editDetails,
+      {
+        item_code: `custom_${Date.now()}`,
+        item_name: '',
+        amount: 0,
+        type: type,
+        note: ''
+      }
+    ]);
+  };
+
+  const handleRemoveDetail = (indexToRemove) => {
+    setEditDetails(editDetails.filter((_, idx) => idx !== indexToRemove));
+  };
+
   const filteredPayrolls = payrolls.filter(p => {
     const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(p.employeeId);
     const matchesNameSearch = !searchTerm || p.employee?.name?.includes(searchTerm) || p.employee?.code?.includes(searchTerm);
@@ -733,11 +750,20 @@ export default function Payroll() {
                     <tbody>
                       <tr className="font-black">
                         <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">支付總額</td>
-                        <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-emerald-700">{selectedRecord.total_addition.toLocaleString()}</td>
+                        <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-emerald-700">
+                          {isEditing ? editDetails.filter(d => d.type === 'ADDITION').reduce((sum, d) => sum + (Number(d.amount) || 0), 0).toLocaleString() : selectedRecord.total_addition.toLocaleString()}
+                        </td>
                         <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">扣除總額</td>
-                        <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-rose-700">{selectedRecord.total_deduction.toLocaleString()}</td>
+                        <td className="w-1/6 px-3 py-2 text-right border-r-2 border-gray-800 text-rose-700">
+                          {isEditing ? editDetails.filter(d => d.type === 'DEDUCTION').reduce((sum, d) => sum + (Number(d.amount) || 0), 0).toLocaleString() : selectedRecord.total_deduction.toLocaleString()}
+                        </td>
                         <td className="w-1/6 px-3 py-2 bg-gray-50 text-center border-r-2 border-gray-800">實支付額</td>
-                        <td className="w-1/6 px-3 py-2 text-right text-indigo-700 text-lg">{selectedRecord.net_salary.toLocaleString()}</td>
+                        <td className="w-1/6 px-3 py-2 text-right text-indigo-700 text-lg">
+                          {isEditing ? (
+                            editDetails.filter(d => d.type === 'ADDITION').reduce((sum, d) => sum + (Number(d.amount) || 0), 0) -
+                            editDetails.filter(d => d.type === 'DEDUCTION').reduce((sum, d) => sum + (Number(d.amount) || 0), 0)
+                          ).toLocaleString() : selectedRecord.net_salary.toLocaleString()}
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -750,7 +776,8 @@ export default function Payroll() {
                       <tr className="bg-gray-50 border-b-2 border-gray-400">
                         <th className="w-5/12 py-2 border-r-2 border-gray-400 text-center font-black">津貼項目名稱</th>
                         <th className="w-3/12 py-2 border-r-2 border-gray-400 text-center font-black">金額</th>
-                        <th className="w-4/12 py-2 text-center font-black">備註事項</th>
+                        <th className={`${isEditing ? 'w-3/12 border-r-2 border-gray-400' : 'w-4/12'} py-2 text-center font-black`}>備註事項</th>
+                        {isEditing && <th className="w-1/12 py-2 text-center font-black text-rose-500">操作</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -763,38 +790,67 @@ export default function Payroll() {
                           return 0;
                         })
                         .map((d) => (
-                          <tr key={d.originalIndex} className="border-b border-gray-300">
-                            <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
+                          <tr key={`${d.item_code}_${d.originalIndex}`} className="border-b border-gray-300">
+                            <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">
+                              {isEditing && d.item_code.startsWith('custom_') ? (
+                                <input 
+                                  type="text" 
+                                  value={d.item_name} 
+                                  onChange={e => updateEditDetail(d.originalIndex, 'item_name', e.target.value)}
+                                  placeholder="請輸入津貼名稱"
+                                  className="w-full outline-none bg-blue-50 focus:bg-white px-1 py-0.5 rounded"
+                                />
+                              ) : d.item_name}
+                            </td>
                             <td className="px-3 py-2 border-r-2 border-gray-300 text-right font-black">
                               {isEditing ? (
                                 <input 
                                   type="number" 
                                   value={d.amount} 
                                   onChange={e => updateEditDetail(d.originalIndex, 'amount', e.target.value)}
-                                  className="w-full text-right outline-none bg-blue-50 focus:bg-white"
+                                  className="w-full text-right outline-none bg-blue-50 focus:bg-white py-0.5 rounded"
                                 />
                               ) : d.amount.toLocaleString()}
                             </td>
-                            <td className="px-3 py-2 italic text-gray-500 text-xs">
+                            <td className={`px-3 py-2 italic text-gray-500 text-xs ${isEditing ? 'border-r-2 border-gray-300' : ''}`}>
                               {isEditing ? (
                                 <input 
                                   type="text" 
                                   value={d.note || ''} 
                                   onChange={e => updateEditDetail(d.originalIndex, 'note', e.target.value)}
-                                  className="w-full outline-none bg-blue-50 focus:bg-white"
+                                  className="w-full outline-none bg-blue-50 focus:bg-white px-1 py-0.5 rounded"
                                 />
                               ) : d.note}
                             </td>
+                            {isEditing && (
+                              <td className="px-3 py-2 text-center">
+                                <button onClick={() => handleRemoveDetail(d.originalIndex)} className="text-gray-400 hover:text-rose-600 transition-colors p-1" title="刪除項目">
+                                  <X size={16} className="mx-auto" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       {/* Addition Total Row */}
                       <tr className="bg-gray-50 font-black border-b-2 border-gray-400">
                         <td className="px-3 py-2 border-r-2 border-gray-300 text-center">合計</td>
-                        <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-emerald-700">{selectedRecord.total_addition.toLocaleString()}</td>
-                        <td className="px-3 py-2"></td>
+                        <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-emerald-700">
+                          {isEditing 
+                            ? editDetails.filter(d => d.type === 'ADDITION').reduce((sum, d) => sum + (Number(d.amount) || 0), 0).toLocaleString() 
+                            : selectedRecord.total_addition.toLocaleString()}
+                        </td>
+                        <td className={`px-3 py-2 ${isEditing ? 'border-r-2 border-gray-300' : ''}`}></td>
+                        {isEditing && <td className="px-3 py-2"></td>}
                       </tr>
                     </tbody>
                   </table>
+                  {isEditing && (
+                    <div className="bg-gray-50 px-3 py-2 text-center border-b-2 border-gray-400">
+                      <button onClick={() => handleAddDetail('ADDITION')} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center justify-center gap-1 w-full py-1 hover:bg-indigo-50 rounded transition-colors">
+                        + 新增津貼項目
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 4. Deductions Table */}
@@ -804,7 +860,8 @@ export default function Payroll() {
                       <tr className="bg-gray-50 border-b-2 border-gray-800">
                         <th className="w-5/12 py-2 border-r-2 border-gray-800 text-center font-black">扣除項目名稱</th>
                         <th className="w-3/12 py-2 border-r-2 border-gray-800 text-center font-black">金額</th>
-                        <th className="w-4/12 py-2 text-center font-black">備註事項</th>
+                        <th className={`${isEditing ? 'w-3/12 border-r-2 border-gray-800' : 'w-4/12'} py-2 text-center font-black`}>備註事項</th>
+                        {isEditing && <th className="w-1/12 py-2 text-center font-black text-rose-500">操作</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -812,38 +869,67 @@ export default function Payroll() {
                         .map((d, index) => ({...d, originalIndex: index}))
                         .filter(d => d.type === 'DEDUCTION')
                         .map((d) => (
-                          <tr key={d.originalIndex} className="border-b border-gray-300">
-                            <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">{d.item_name}</td>
+                          <tr key={`${d.item_code}_${d.originalIndex}`} className="border-b border-gray-300">
+                            <td className="px-3 py-2 border-r-2 border-gray-300 font-bold text-gray-700">
+                              {isEditing && d.item_code.startsWith('custom_') ? (
+                                <input 
+                                  type="text" 
+                                  value={d.item_name} 
+                                  onChange={e => updateEditDetail(d.originalIndex, 'item_name', e.target.value)}
+                                  placeholder="請輸入扣除名稱"
+                                  className="w-full outline-none bg-blue-50 focus:bg-white px-1 py-0.5 rounded"
+                                />
+                              ) : d.item_name}
+                            </td>
                             <td className="px-3 py-2 border-r-2 border-gray-300 text-right font-black">
                               {isEditing ? (
                                 <input 
                                   type="number" 
                                   value={d.amount} 
                                   onChange={e => updateEditDetail(d.originalIndex, 'amount', e.target.value)}
-                                  className="w-full text-right outline-none bg-blue-50 focus:bg-white"
+                                  className="w-full text-right outline-none bg-blue-50 focus:bg-white py-0.5 rounded"
                                 />
                               ) : d.amount.toLocaleString()}
                             </td>
-                            <td className="px-3 py-2 italic text-gray-500 text-xs">
+                            <td className={`px-3 py-2 italic text-gray-500 text-xs ${isEditing ? 'border-r-2 border-gray-300' : ''}`}>
                               {isEditing ? (
                                 <input 
                                   type="text" 
                                   value={d.note || ''} 
                                   onChange={e => updateEditDetail(d.originalIndex, 'note', e.target.value)}
-                                  className="w-full outline-none bg-blue-50 focus:bg-white px-1"
+                                  className="w-full outline-none bg-blue-50 focus:bg-white px-1 py-0.5 rounded"
                                 />
                               ) : d.note}
                             </td>
+                            {isEditing && (
+                              <td className="px-3 py-2 text-center">
+                                <button onClick={() => handleRemoveDetail(d.originalIndex)} className="text-gray-400 hover:text-rose-600 transition-colors p-1" title="刪除項目">
+                                  <X size={16} className="mx-auto" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       {/* Deduction Total Row */}
                       <tr className="bg-gray-50 font-black">
                         <td className="px-3 py-2 border-r-2 border-gray-300 text-center">合計</td>
-                        <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-rose-700">{selectedRecord.total_deduction.toLocaleString()}</td>
-                        <td className="px-3 py-2"></td>
+                        <td className="px-3 py-2 border-r-2 border-gray-300 text-right text-rose-700">
+                          {isEditing 
+                            ? editDetails.filter(d => d.type === 'DEDUCTION').reduce((sum, d) => sum + (Number(d.amount) || 0), 0).toLocaleString() 
+                            : selectedRecord.total_deduction.toLocaleString()}
+                        </td>
+                        <td className={`px-3 py-2 ${isEditing ? 'border-r-2 border-gray-300' : ''}`}></td>
+                        {isEditing && <td className="px-3 py-2"></td>}
                       </tr>
                     </tbody>
                   </table>
+                  {isEditing && (
+                    <div className="bg-gray-50 px-3 py-2 text-center">
+                      <button onClick={() => handleAddDetail('DEDUCTION')} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center justify-center gap-1 w-full py-1 hover:bg-indigo-50 rounded transition-colors">
+                        + 新增扣除項目
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Status and Action Buttons */}
