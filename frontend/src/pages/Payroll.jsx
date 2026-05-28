@@ -108,6 +108,20 @@ export default function Payroll() {
     }
   });
 
+  const [payday, setPayday] = useState(5);
+
+  const getPaymentDate = (yearMonthStr) => {
+    if (!yearMonthStr) return '';
+    const [year, month] = yearMonthStr.split('-');
+    let nextMonth = parseInt(month, 10) + 1;
+    let nextYear = parseInt(year, 10);
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    return `${nextYear}/${String(nextMonth).padStart(2, '0')}/${String(payday).padStart(2, '0')}`;
+  };
+
   useEffect(() => {
     localStorage.setItem('payrollVisibleColumns', JSON.stringify(visibleColumns));
   }, [visibleColumns]);
@@ -125,7 +139,20 @@ export default function Payroll() {
 
   useEffect(() => {
     fetchPayrolls();
+    fetchPayday();
   }, [dateRange]);
+
+  const fetchPayday = async () => {
+    try {
+      const res = await api.get('/metadata?type=SYSTEM_SETTING');
+      const setting = res.data.find(s => s.label === 'payday');
+      if (setting && setting.value) {
+        setPayday(Number(setting.value));
+      }
+    } catch (e) {
+      console.error('Failed to fetch payday setting');
+    }
+  };
 
   const fetchPayrolls = async () => {
     try {
@@ -738,7 +765,7 @@ export default function Payroll() {
                         <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">部門</td>
                         <td className="px-3 py-2 border-r-2 border-gray-800 font-bold">{selectedRecord.employee.department || '--'}</td>
                         <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">支付日期</td>
-                        <td className="px-3 py-2 font-bold">{selectedRecord.year_month.replace('-', '/')}/05</td>
+                        <td className="px-3 py-2 font-bold">{getPaymentDate(selectedRecord.year_month)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1031,7 +1058,7 @@ export default function Payroll() {
                   <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">部門</td>
                   <td className="px-3 py-2 border-r-2 border-gray-800 font-bold">{p.employee.department || '--'}</td>
                   <td className="px-3 py-2 bg-gray-50 font-black text-center border-r-2 border-gray-800">支付日期</td>
-                  <td className="px-3 py-2 font-bold">{p.year_month.replace('-', '/')}/05</td>
+                  <td className="px-3 py-2 font-bold">{getPaymentDate(p.year_month)}</td>
                 </tr>
               </tbody>
             </table>

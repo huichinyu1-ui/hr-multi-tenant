@@ -11,7 +11,8 @@ export default function Settings() {
     punch_enabled: 'true',
     company_lat: '25.033976',
     company_lng: '121.564421',
-    punch_radius_meters: '500'
+    punch_radius_meters: '500',
+    payday: '5'
   });
 
   useEffect(() => {
@@ -180,6 +181,35 @@ export default function Settings() {
                 提示：中心點座標決定了員工打卡的圓心。建議管理員在公司中心位置點擊上方按鈕以獲得最精確的經緯度。
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payroll Settings */}
+      <div className="bg-white rounded-[3rem] p-10 shadow-2xl shadow-gray-200/50 border border-white mt-8">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-14 h-14 bg-emerald-600 rounded-[1.25rem] flex items-center justify-center text-white shadow-xl shadow-emerald-100">
+            <SettingsIcon size={28} />
+          </div>
+          <h3 className="text-2xl font-black text-gray-900 tracking-tight">薪資結算設定</h3>
+        </div>
+        <div className="space-y-6">
+          <div className="space-y-2 max-w-sm">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">預設發薪日 (號)</label>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-gray-500">每月</span>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                value={config.payday}
+                onChange={e => setConfig(prev => ({ ...prev, payday: e.target.value }))}
+                className="w-24 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 font-black text-center text-gray-800 focus:ring-4 focus:ring-emerald-100 outline-none transition-all"
+                placeholder="5"
+              />
+              <span className="text-sm font-bold text-gray-500">號發放</span>
+            </div>
+            <p className="text-[10px] text-gray-400 font-bold ml-4 mt-2">此設定將決定薪資單上顯示的支付日期（例如設定 10 號，則 5 月薪資單顯示 6 月 10 日）。</p>
           </div>
         </div>
       </div>
