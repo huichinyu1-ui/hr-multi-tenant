@@ -810,7 +810,21 @@ export default function Employees() {
 
                     <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl space-y-4">
                       <h4 className="text-xs font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2">🛡️ 個人化保險設定</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-black text-indigo-600">手動投保薪資基準</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 font-bold">$</span>
+                            <input 
+                              type="number" 
+                              value={form.insurance_salary || ''} 
+                              onChange={e=>setForm({...form, insurance_salary: e.target.value === '' ? 0 : parseFloat(e.target.value)})} 
+                              className="w-full border border-indigo-200 rounded pl-8 pr-3 py-2 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-500" 
+                              placeholder="預設自動計算 (填入 0)"
+                            />
+                          </div>
+                          <p className="text-[10px] text-indigo-400 font-bold">* 若填寫大於0，則無視公式直接以此金額對照級距</p>
+                        </div>
                         <div className="space-y-1.5">
                           <label className="text-xs font-black text-indigo-600">勞退個人自提比例 (%)</label>
                           <div className="flex items-center gap-2">

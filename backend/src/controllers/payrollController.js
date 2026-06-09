@@ -64,8 +64,11 @@ exports.calculatePayroll = async (req, res) => {
       // 使用 Number() 確保型別相符 (Turso 可能回傳字串型 id)
       const policy = allPolicies.find(p => Number(p.id) === Number(emp.insurancePolicyId));
       
-      // 根據公式計算「投保薪資基準」
-      const insuranceBasis = FormulaEngine.calculate(basisFormula, pool);
+      // 如果員工資料中有手動設定投保金額(>0)，則優先使用手動設定值，否則根據公式計算「投保薪資基準」
+      const insuranceBasis = (emp.insurance_salary && emp.insurance_salary > 0) 
+        ? emp.insurance_salary 
+        : FormulaEngine.calculate(basisFormula, pool);
+        
       pool.insurance_salary = insuranceBasis; // 將投保基準注入變數池，供其他公式引用
       
       // 初始值設為 0
