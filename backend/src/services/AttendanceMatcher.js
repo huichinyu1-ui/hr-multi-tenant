@@ -118,10 +118,20 @@ class AttendanceMatcher {
       for (const cDay of calendarDays) {
         const dateStr = cDay.date;
 
-        if (emp.join_date && dateStr < emp.join_date) continue;
-        if (emp.resign_date && dateStr > emp.resign_date) continue;
-
         const existingRecord = recordMap.get(`${emp.id}_${dateStr}`);
+
+        if (emp.join_date && dateStr < emp.join_date) {
+          if (existingRecord) {
+            operations.push(prisma.dailyRecord.delete({ where: { id: existingRecord.id } }));
+          }
+          continue;
+        }
+        if (emp.resign_date && dateStr > emp.resign_date) {
+          if (existingRecord) {
+            operations.push(prisma.dailyRecord.delete({ where: { id: existingRecord.id } }));
+          }
+          continue;
+        }
         // 關鍵：這裡的 hasClock 包含了「補打卡」後寫入 DailyRecord 的時間
         const leave = empLeaves.find(lr => dateStr >= lr.start_date && dateStr <= lr.end_date);
         const otReq = otByEmpDate.get(`${emp.id}_${dateStr}`);

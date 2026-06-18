@@ -270,7 +270,9 @@ exports.getSummary = async (req, res) => {
     const empWhere = {
       OR: [
         { status: 'ACTIVE' },
-        { status: 'RESIGNED', resign_date: { gte: periodStart } }
+        { status: 'RESIGNED', resign_date: { gte: periodStart } },
+        { status: 'RESIGNED', resign_date: null },
+        { status: 'RESIGNED', resign_date: '' }
       ]
     };
     if (selfOnlyId) empWhere.id = selfOnlyId;
