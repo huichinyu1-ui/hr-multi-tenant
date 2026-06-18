@@ -25,7 +25,23 @@ exports.getAuditLogs = async (req, res) => {
       SELECT COUNT(*) as count FROM "AuditLog"
     `).then(r => Number(r[0]?.count || 0)).catch(() => 0);
 
-    res.json({ logs, total, page: parseInt(page), limit: parseInt(limit) });
+    // 用 operatorId 批次查詢員工姓名，確保顯示的是即時姓名而非舊快取
+    const operatorIds = [...new Set(logs.map(l => l.operatorId).filter(id => id > 0))];
+    let employeeNameMap = {};
+    if (operatorIds.length > 0) {
+      const employees = await req.db.employee.findMany({
+        where: { id: { in: operatorIds } },
+        select: { id: true, name: true }
+      }).catch(() => []);
+      employees.forEach(e => { employeeNameMap[e.id] = e.name; });
+    }
+
+    const enrichedLogs = logs.map(l => ({
+      ...l,
+      operatorName: employeeNameMap[l.operatorId] || l.operatorName || `#${l.operatorId}`
+    }));
+
+    res.json({ logs: enrichedLogs, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (error) {
     console.error('[Audit] getAuditLogs error:', error);
     res.status(500).json({ error: '獲取操作日誌失敗' });
