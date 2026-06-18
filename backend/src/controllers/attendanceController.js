@@ -156,7 +156,16 @@ exports.getAttendances = async (req, res) => {
       include: { employee: true },
       orderBy: [{ date: 'asc' }, { employeeId: 'asc' }]
     });
-    res.json(records);
+
+    // 動態過濾掉不應出現的幽靈考勤紀錄 (即使尚未執行一鍵同步清理，也直接隱藏)
+    const validRecords = records.filter(r => {
+      if (!r.employee) return false;
+      if (r.employee.join_date && r.date < r.employee.join_date) return false;
+      if (r.employee.resign_date && r.date > r.employee.resign_date) return false;
+      return true;
+    });
+
+    res.json(validRecords);
   } catch (error) {
     res.status(500).json({ error: '獲取紀錄失敗' });
   }
@@ -442,6 +451,14 @@ exports.exportAttendanceSummary = async (req, res) => {
         where,
         include: { employee: true },
         orderBy: [{ date: 'asc' }, { employeeId: 'asc' }]
+      });
+
+      // 動態過濾掉不應出現的幽靈考勤紀錄
+      records = records.filter(r => {
+        if (!r.employee) return false;
+        if (r.employee.join_date && r.date < r.employee.join_date) return false;
+        if (r.employee.resign_date && r.date > r.employee.resign_date) return false;
+        return true;
       });
 
       // 套用與前端一致的過濾
