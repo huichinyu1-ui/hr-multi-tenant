@@ -269,10 +269,9 @@ exports.getSummary = async (req, res) => {
     const periodStart = start_date || `${year_month}-01`;
     const empWhere = {
       OR: [
-        { status: 'ACTIVE' },
-        { status: 'RESIGNED', resign_date: { gte: periodStart } },
-        { status: 'RESIGNED', resign_date: null },
-        { status: 'RESIGNED', resign_date: '' }
+        { status: 'ACTIVE', resign_date: null },
+        { status: 'ACTIVE', resign_date: '' },
+        { resign_date: { gte: periodStart } }
       ]
     };
     if (selfOnlyId) empWhere.id = selfOnlyId;
@@ -378,8 +377,9 @@ exports.exportAttendanceSummary = async (req, res) => {
       const periodStart2 = start_date || (year_month ? `${year_month}-01` : undefined);
       const empWhere = {
         OR: [
-          { status: 'ACTIVE' },
-          ...(periodStart2 ? [{ status: 'RESIGNED', resign_date: { gte: periodStart2 } }] : [])
+          { status: 'ACTIVE', resign_date: null },
+          { status: 'ACTIVE', resign_date: '' },
+          ...(periodStart2 ? [{ resign_date: { gte: periodStart2 } }] : [])
         ]
       };
       if (selfOnlyId) empWhere.id = selfOnlyId;
