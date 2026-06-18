@@ -432,6 +432,14 @@ exports.getLeaveQuotas = async (req, res) => {
         }
       });
       const oldTotalHours = existing?.total_hours ?? null;
+
+      // 查詢員工姓名與假別名稱，供日誌備註使用
+      const [empForLog, ltForLog] = await Promise.all([
+        req.db.employee.findUnique({ where: { id: parseInt(employeeId) }, select: { name: true } }).catch(() => null),
+        req.db.leaveType.findUnique({ where: { id: parseInt(leaveTypeId) }, select: { name: true } }).catch(() => null)
+      ]);
+      const empName = empForLog?.name || `員工 #${employeeId}`;
+      const ltName  = ltForLog?.name  || '假別';
   
       const quota = await req.db.leaveQuota.upsert({
         where: {
@@ -463,7 +471,7 @@ exports.getLeaveQuotas = async (req, res) => {
         'total_hours',
         oldTotalHours ?? 0,
         tHours,
-        `員工 ${employeeId} 的 ${year} 年度特休額度手動調整`
+        `手動調整 [${empName}] 的 ${year} 年度 [${ltName}] 額度`
       );
     }
 

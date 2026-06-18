@@ -34,7 +34,7 @@ const generateAutoNote = async (db, action, tableName, recordId, originalNote) =
       if (att) return `${actStr} [${att.employee?.name || '未知'}] ${att.date} 的考勤紀錄`;
     } else if (tableName === 'LeaveQuota' && db.leaveQuota) {
       const q = await db.leaveQuota.findUnique({ where: { id: parseInt(recordId) }, include: { employee: true, leaveType: true } });
-      if (q) return `${actStr} [${q.employee?.name || '未知'}] 的 [${q.leaveType?.name || '特休'}] 額度`;
+      if (q) return `${actStr} [${q.employee?.name || '未知'}] 的 [${q.leaveType?.name || '假別'}] 額度`;
     }
   } catch (e) {
     // 查詢失敗靜默忽略，保留原狀
