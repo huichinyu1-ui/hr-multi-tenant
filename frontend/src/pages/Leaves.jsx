@@ -464,11 +464,28 @@ export default function Leaves() {
     } catch (e) { addToast('儲存失敗', 'error'); } finally { setSaving(false); }
   };
 
-  const filteredRequests = sortItems(requests.filter(r => {const matchesStatus = requestStatusFilter === 'all' || r.status === requestStatusFilter;const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(r.employeeId);return matchesStatus && matchesEmp;}));
+  const filteredRequests = sortItems(requests.filter(r => {
+    const matchesReqStatus = requestStatusFilter === 'all' || r.status === requestStatusFilter;
+    const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(r.employeeId);
+    const empStatus = r.employee?.status === 'RESIGNED' ? 'RESIGNED' : (r.employee?.resign_date && new Date().toISOString().split('T')[0] >= r.employee?.resign_date ? 'RESIGNED' : 'ACTIVE');
+    const matchesListStatus = listStatusFilter === 'all' || empStatus === listStatusFilter;
+    return matchesReqStatus && matchesEmp && matchesListStatus;
+  }));
 
-  const filteredOvertimeRequests = sortItems(overtimeRequests.filter(r => {const matchesStatus = requestStatusFilter === 'all' || r.status === requestStatusFilter;const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(r.employeeId);return matchesStatus && matchesEmp;}));
+  const filteredOvertimeRequests = sortItems(overtimeRequests.filter(r => {
+    const matchesReqStatus = requestStatusFilter === 'all' || r.status === requestStatusFilter;
+    const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(r.employeeId);
+    const empStatus = r.employee?.status === 'RESIGNED' ? 'RESIGNED' : (r.employee?.resign_date && new Date().toISOString().split('T')[0] >= r.employee?.resign_date ? 'RESIGNED' : 'ACTIVE');
+    const matchesListStatus = listStatusFilter === 'all' || empStatus === listStatusFilter;
+    return matchesReqStatus && matchesEmp && matchesListStatus;
+  }));
 
-  const filteredQuotas = sortItems(quotas.filter(q => {const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(q.employeeId);return matchesEmp;}));
+  const filteredQuotas = sortItems(quotas.filter(q => {
+    const matchesEmp = selectedEmpIds.length === 0 || selectedEmpIds.includes(q.employeeId);
+    const empStatus = q.employee?.status === 'RESIGNED' ? 'RESIGNED' : (q.employee?.resign_date && new Date().toISOString().split('T')[0] >= q.employee?.resign_date ? 'RESIGNED' : 'ACTIVE');
+    const matchesListStatus = listStatusFilter === 'all' || empStatus === listStatusFilter;
+    return matchesEmp && matchesListStatus;
+  }));
 
   return (
     <div className="flex flex-col h-screen bg-white overflow-hidden">
@@ -534,7 +551,13 @@ export default function Leaves() {
                       <button onClick={() => setSelectedEmpIds([])} className="text-[10px] font-bold text-indigo-600 hover:underline">清除選擇</button>
                     </div>
                     <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                      {employees.filter(e => listStatusFilter === 'all' || e.status === listStatusFilter).map(emp => (
+                      {employees.filter(e => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const isResigned = e.status === 'RESIGNED' || (e.resign_date && today >= e.resign_date);
+                        if (listStatusFilter === 'all') return true;
+                        if (listStatusFilter === 'RESIGNED') return isResigned;
+                        return !isResigned; // ACTIVE
+                      }).map(emp => (
                         <label key={emp.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer group transition-colors">
                           <input type="checkbox" checked={selectedEmpIds.includes(emp.id)} onChange={() => selectedEmpIds.includes(emp.id) ? setSelectedEmpIds(selectedEmpIds.filter(id => id !== emp.id)) : setSelectedEmpIds([...selectedEmpIds, emp.id])} className="w-3 h-3 rounded border-gray-300 text-indigo-600 focus:ring-0" />
                           <span className={`text-xs md:text-sm font-bold ${selectedEmpIds.includes(emp.id) ? 'text-indigo-600' : 'text-gray-600'}`}>{emp.name} <span className="text-[10px] text-gray-400 font-mono">({emp.code})</span></span>
@@ -1015,7 +1038,7 @@ export default function Leaves() {
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">選擇員工</label>
                   <select required value={form.employeeId} onChange={e=>setForm({...form, employeeId: e.target.value})} className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold focus:bg-white outline-none transition-all">
                     <option value="">請選擇員工...</option>
-                    {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
+                    {employees.filter(e => !(e.status === 'RESIGNED' || (e.resign_date && new Date().toISOString().split('T')[0] >= e.resign_date))).map(e => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -1118,7 +1141,7 @@ export default function Leaves() {
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">選擇員工</label>
                 <select required value={otForm.employeeId} onChange={e=>setOtForm({...otForm, employeeId: e.target.value})} className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold focus:bg-white outline-none transition-all">
                   <option value="">請選擇員工...</option>
-                  {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
+                  {employees.filter(e => !(e.status === 'RESIGNED' || (e.resign_date && new Date().toISOString().split('T')[0] >= e.resign_date))).map(e => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
