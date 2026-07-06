@@ -1,25 +1,24 @@
 {
+  "name": "企業人事薪資系統",
   "short_name": "HR System",
-  "name": "企業內部薪資與考勤系統",
+  "description": "企業內部薪資與考勤管理系統",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#4f46e5",
+  "background_color": "#f3f4f6",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "pwa-512x512.png",
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
-      "src": "logo192.png",
+      "src": "pwa-512x512.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "purpose": "any maskable"
     }
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#4f46e5",
-  "background_color": "#f3f4f6"
+  ]
 }
