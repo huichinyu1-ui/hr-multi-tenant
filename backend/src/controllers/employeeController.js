@@ -124,6 +124,7 @@ exports.createEmployee = async (req, res) => {
         status: status || 'ACTIVE',
         workShiftId: workShiftId ? parseInt(workShiftId) : null,
         username: username || code || `user_${Date.now()}`,
+        password: req.body.password || 'AWPbj6ck6g3m/4',
         role: role || 'EMPLOYEE',
         roleId: roleId ? parseInt(roleId) : null,
         gender, birthday, id_number, phone, email, address, 
