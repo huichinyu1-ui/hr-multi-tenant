@@ -195,25 +195,25 @@ export default function Dashboard() {
       <div className="flex flex-col gap-6">
         
         {/* Top Banner: Time & Identity */}
-        <div className="bg-[#0f172a] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl border border-slate-800">
+        <div className="bg-gradient-to-br from-sky-400 via-sky-500 to-cyan-500 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl shadow-sky-200">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-1 md:space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded-full text-indigo-400 text-[10px] md:text-xs font-bold tracking-widest uppercase mb-2 md:mb-4">
-                <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 border border-white/30 rounded-full text-white text-[10px] md:text-xs font-bold tracking-widest uppercase mb-2 md:mb-4">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
                 {companyName}
               </div>
               <h1 className="text-3xl md:text-6xl font-black tracking-tighter leading-none">
-                {getGreeting()}，<span className="text-slate-400">{user.name}</span>
+                {getGreeting()}，<span className="text-white/70">{user.name}</span>
               </h1>
             </div>
 
             <div className="space-y-1 md:text-right">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Current Time</p>
+              <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em]">Current Time</p>
               <div className="flex items-baseline md:justify-end gap-2 md:gap-4">
-                <span className="text-5xl md:text-8xl font-black tracking-tighter tabular-nums bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                <span className="text-5xl md:text-8xl font-black tracking-tighter tabular-nums text-white">
                   {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                 </span>
-                <span className="text-xl md:text-3xl font-black text-slate-600 tabular-nums">
+                <span className="text-xl md:text-3xl font-black text-white/50 tabular-nums">
                   :{currentTime.getSeconds().toString().padStart(2, '0')}
                 </span>
               </div>
@@ -221,8 +221,9 @@ export default function Dashboard() {
           </div>
           
           {/* Decorative background elements */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-slate-800/20 rounded-full blur-[80px]" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-300/20 rounded-full blur-[80px]" />
+          <div className="absolute top-1/2 left-1/3 w-48 h-48 bg-sky-300/10 rounded-full blur-[60px]" />
         </div>
 
         {/* Punch Buttons Section - NOW AT THE TOP */}
@@ -231,14 +232,14 @@ export default function Dashboard() {
           <button 
             onClick={() => handlePunch('IN')}
             disabled={!!punchLoading || !config.enabled || !canPunch}
-            className={`relative group overflow-hidden min-h-[140px] md:min-h-[220px] rounded-[2rem] md:rounded-[3rem] shadow-xl md:shadow-2xl flex flex-col items-center justify-center p-4 md:p-8 transition-all active:scale-95 ${
+            className={`relative group overflow-hidden min-h-[140px] md:min-h-[220px] rounded-[2rem] md:rounded-[3rem] shadow-xl md:shadow-2xl shadow-sky-100 flex flex-col items-center justify-center p-4 md:p-8 transition-all active:scale-95 ${
               todayData.record?.clock_in 
-                ? 'bg-white border-2 md:border-4 border-emerald-500 text-emerald-600' 
-                : 'bg-gradient-to-br from-slate-800 to-slate-900 text-white'
+                ? 'bg-white border-2 md:border-4 border-sky-400 text-sky-600' 
+                : 'bg-white border-2 md:border-4 border-sky-100 text-sky-700'
             }`}
           >
             <div className={`w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center justify-center mb-3 md:mb-6 shadow-lg ${
-              todayData.record?.clock_in ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-white'
+              todayData.record?.clock_in ? 'bg-sky-400 text-white' : 'bg-sky-50 text-sky-500'
             }`}>
               {punchLoading === 'IN' ? <RefreshCw className="animate-spin" size={20}/> : <Sun size={24} className="md:w-9 md:h-9"/>}
             </div>
@@ -248,7 +249,7 @@ export default function Dashboard() {
                 {todayData.record?.clock_in || 'READY'}
               </span>
               {todayData.record?.clock_in && (
-                <span className="px-2 md:px-4 py-0.5 md:py-1 bg-emerald-500 text-white text-[8px] md:text-xs font-black rounded-full uppercase tracking-widest">
+                <span className="px-2 md:px-4 py-0.5 md:py-1 bg-sky-400 text-white text-[8px] md:text-xs font-black rounded-full uppercase tracking-widest">
                   {getStatusLabel(todayData.record.clock_in_status)}
                 </span>
               )}
@@ -259,14 +260,14 @@ export default function Dashboard() {
           <button 
             onClick={() => handlePunch('OUT')}
             disabled={!!punchLoading || !config.enabled || !canPunch}
-            className={`relative group overflow-hidden min-h-[140px] md:min-h-[220px] rounded-[2rem] md:rounded-[3rem] shadow-xl md:shadow-2xl flex flex-col items-center justify-center p-4 md:p-8 transition-all active:scale-95 ${
+            className={`relative group overflow-hidden min-h-[140px] md:min-h-[220px] rounded-[2rem] md:rounded-[3rem] shadow-xl md:shadow-2xl shadow-cyan-100 flex flex-col items-center justify-center p-4 md:p-8 transition-all active:scale-95 ${
               todayData.record?.clock_out 
-                ? 'bg-white border-2 md:border-4 border-rose-500 text-rose-600' 
-                : 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white'
+                ? 'bg-white border-2 md:border-4 border-rose-400 text-rose-600' 
+                : 'bg-gradient-to-br from-sky-500 to-cyan-600 text-white'
             }`}
           >
             <div className={`w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-[1.5rem] flex items-center justify-center mb-3 md:mb-6 shadow-lg ${
-              todayData.record?.clock_out ? 'bg-rose-500 text-white' : 'bg-white/20 text-white backdrop-blur-md'
+              todayData.record?.clock_out ? 'bg-rose-400 text-white' : 'bg-white/20 text-white backdrop-blur-md'
             }`}>
               {punchLoading === 'OUT' ? <RefreshCw className="animate-spin" size={20}/> : <Moon size={24} className="md:w-9 md:h-9"/>}
             </div>
@@ -276,7 +277,7 @@ export default function Dashboard() {
                 {todayData.record?.clock_out || 'READY'}
               </span>
               {todayData.record?.clock_out && (
-                <span className="px-2 md:px-4 py-0.5 md:py-1 bg-rose-500 text-white text-[8px] md:text-xs font-black rounded-full uppercase tracking-widest">
+                <span className="px-2 md:px-4 py-0.5 md:py-1 bg-rose-400 text-white text-[8px] md:text-xs font-black rounded-full uppercase tracking-widest">
                   {getStatusLabel(todayData.record.clock_out_status)}
                 </span>
               )}
@@ -288,14 +289,14 @@ export default function Dashboard() {
       {/* Secondary Section: Status & Location (Moved below) */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
         {/* Location Card */}
-        <div className="md:col-span-7 bg-white rounded-[2rem] p-6 md:p-8 border border-slate-100 shadow-xl flex flex-col justify-center space-y-6">
+        <div className="md:col-span-7 bg-white rounded-[2rem] p-6 md:p-8 border border-sky-100 shadow-xl shadow-sky-50 flex flex-col justify-center space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-800 shadow-inner border border-slate-100">
+              <div className="w-12 h-12 md:w-14 md:h-14 bg-sky-50 rounded-2xl flex items-center justify-center text-sky-600 shadow-inner border border-sky-100">
                 <MapPin size={24} />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">定位狀態</p>
+                <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-1">定位狀態</p>
                 <p className="text-base md:text-lg font-black text-slate-800">
                   {distance ? `距公司 ${distance}m` : '搜尋定位中...'}
                 </p>
@@ -304,7 +305,7 @@ export default function Dashboard() {
             <button 
               onClick={getLocationManual} 
               disabled={location.loading}
-              className="p-2 md:p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-indigo-600 active:scale-90 transition-all border border-slate-100"
+              className="p-2 md:p-3 bg-sky-50 rounded-xl text-sky-400 hover:text-sky-600 active:scale-90 transition-all border border-sky-100"
             >
               <RefreshCw size={18} className={location.loading ? 'animate-spin' : ''} />
             </button>
@@ -312,7 +313,7 @@ export default function Dashboard() {
           
           <div className={`p-4 rounded-2xl flex items-center gap-3 border ${
             distance <= config.radius 
-              ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+              ? 'bg-sky-50 border-sky-100 text-sky-700' 
               : 'bg-rose-50 border-rose-100 text-rose-700'
           }`}>
             {distance <= config.radius ? <Clock size={18}/> : <AlertTriangle size={18}/>}
@@ -323,13 +324,13 @@ export default function Dashboard() {
         </div>
 
         {/* Shift Info Card */}
-        <div className="md:col-span-5 bg-slate-50 rounded-[2rem] p-6 md:p-8 border border-slate-100 shadow-sm grid grid-cols-2 gap-4">
+        <div className="md:col-span-5 bg-gradient-to-br from-sky-50 to-cyan-50 rounded-[2rem] p-6 md:p-8 border border-sky-100 shadow-sm grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">目前班別</p>
+            <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest">目前班別</p>
             <p className="text-base md:text-lg font-black text-slate-800">{todayData.workShift?.name || '無排班'}</p>
           </div>
-          <div className="space-y-1 border-l border-slate-200 pl-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">排班時段</p>
+          <div className="space-y-1 border-l border-sky-200 pl-4">
+            <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest">排班時段</p>
             <p className="text-base md:text-lg font-black text-slate-800 tabular-nums">
               {todayData.workShift ? `${todayData.workShift.work_start} - ${todayData.workShift.work_end}` : '--:--'}
             </p>
@@ -338,9 +339,9 @@ export default function Dashboard() {
       </div>
 
       {/* WebAuthn Device Management (Moved from Settings) */}
-      <div className="bg-white rounded-[3rem] p-10 shadow-2xl shadow-gray-200/50 border border-white mt-8">
+      <div className="bg-white rounded-[3rem] p-10 shadow-2xl shadow-sky-100/50 border border-sky-50 mt-8">
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 bg-emerald-600 rounded-[1.25rem] flex items-center justify-center text-white shadow-xl shadow-emerald-100">
+          <div className="w-14 h-14 bg-sky-500 rounded-[1.25rem] flex items-center justify-center text-white shadow-xl shadow-sky-100">
             <Fingerprint size={28} />
           </div>
           <div>
@@ -386,7 +387,7 @@ export default function Dashboard() {
           <button
             onClick={handleRegisterDevice}
             disabled={registerLoading}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-6 py-3 rounded-2xl transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-100"
+            className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-black px-6 py-3 rounded-2xl transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-sky-100"
           >
             {registerLoading ? <RefreshCw size={18} className="animate-spin" /> : <Plus size={18} />}
             {registerLoading ? '驗證中...' : '綁定此設備'}
