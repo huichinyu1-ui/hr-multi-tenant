@@ -741,9 +741,11 @@ exports.autoCalculateQuotas = async (req, res) => {
     const existingQuotas = await req.db.leaveQuota.findMany({
       where: { year: targetYear, ...(empWhere.id ? { employeeId: empWhere.id } : {}) }
     });
-    const quotaMap = {};
+    const quotaMap = {};      // key: empId_ltId -> carried_over_hours
+    const annualMap = {};     // key: empId_ltId -> existing annual_hours (手動輸入值保護用)
     for (const q of existingQuotas) {
       quotaMap[`${q.employeeId}_${q.leaveTypeId}`] = q.carried_over_hours || 0;
+      annualMap[`${q.employeeId}_${q.leaveTypeId}`] = q.annual_hours || 0;
     }
 
     const operations = [];
@@ -763,11 +765,13 @@ exports.autoCalculateQuotas = async (req, res) => {
       for (const lt of leaveTypes) {
         if (lt.quota_type === 'FIXED') {
           const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
-          const annualHours = (lt.default_days || 0) * 8;
+          const autoAnnualHours = (lt.default_days || 0) * 8;
+          const existingAnnual = annualMap[`${emp.id}_${lt.id}`] || 0;
+          // 若已有手動輸入的 annual_hours，且自動計算結果為 0，則保留手動值，不覆蓋
+          const annualHours = (autoAnnualHours === 0 && existingAnnual > 0) ? existingAnnual : autoAnnualHours;
           let valid_from = null;
           let valid_to = null;
           if (lt.calculation_mode === 'ANNIVERSARY') {
-             // 週年制固定天數，有效日通常就是當年的到職日到隔年到職日前一天
              valid_from = `${targetYear}-${String(joinDate.getMonth()+1).padStart(2, '0')}-${String(joinDate.getDate()).padStart(2, '0')}`;
              const nextYearDate = new Date(targetYear + 1, joinDate.getMonth(), joinDate.getDate() - 1);
              valid_to = `${nextYearDate.getFullYear()}-${String(nextYearDate.getMonth()+1).padStart(2, '0')}-${String(nextYearDate.getDate()).padStart(2, '0')}`;

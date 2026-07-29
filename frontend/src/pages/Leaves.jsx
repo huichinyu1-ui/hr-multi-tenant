@@ -453,7 +453,11 @@ export default function Leaves() {
     if (!batchLeaveTypeId) return alert('請先選擇假別');
     if (saving) return;
     const quotasToSave = employees.map(emp => ({
-      employeeId: emp.id, leaveTypeId: batchLeaveTypeId, year: batchYear, total_hours: parseFloat(batchValues[emp.id] || 0)
+      employeeId: emp.id,
+      leaveTypeId: batchLeaveTypeId,
+      year: batchYear,
+      annual_hours: parseFloat(batchValues[emp.id] || 0),
+      total_hours: parseFloat(batchValues[emp.id] || 0)
     }));
     setSaving(true);
     try {
