@@ -727,8 +727,9 @@ exports.exportLeaves = async (req, res) => {
 };
 
 exports.autoCalculateQuotas = async (req, res) => {
-  const { year, employeeIds } = req.body;
+  const { year, employeeIds, forceOverwrite } = req.body;
   const targetYear = year ? parseInt(year) : new Date().getFullYear();
+  const shouldOverwrite = forceOverwrite === true;  // 明確要求覆蓋才覆蓋
 
   try {
     let empWhere = {};
@@ -768,7 +769,10 @@ exports.autoCalculateQuotas = async (req, res) => {
           const autoAnnualHours = (lt.default_days || 0) * 8;
           const existingAnnual = annualMap[`${emp.id}_${lt.id}`] || 0;
           // 若已有手動輸入的 annual_hours，且自動計算結果為 0，則保留手動值，不覆蓋
-          const annualHours = (autoAnnualHours === 0 && existingAnnual > 0) ? existingAnnual : autoAnnualHours;
+          // forceOverwrite=true 時一律重算，不保留手動值
+          const annualHours = (!shouldOverwrite && autoAnnualHours === 0 && existingAnnual > 0)
+            ? existingAnnual
+            : autoAnnualHours;
           let valid_from = null;
           let valid_to = null;
           if (lt.calculation_mode === 'ANNIVERSARY') {

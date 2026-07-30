@@ -28,6 +28,7 @@ export default function Leaves() {
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [processingOtId, setProcessingOtId] = useState(null);
+  const [showAutoCalcModal, setShowAutoCalcModal] = useState(false);
 
   const [sortConfig, setSortConfig] = useState({ key: '', direction: '' });
 
@@ -317,18 +318,14 @@ export default function Leaves() {
     );
   };
 
-  const handleAutoCalcQuotas = async () => {
-    const msg = selectedCalcEmpIds.length > 0 
-      ? `系統即將根據「假別設定」的週期規則（曆年/週年），重新試算【選中的 ${selectedCalcEmpIds.length} 位員工】本年度特休。\n\n確定要執行批次試算嗎？`
-      : `系統即將根據「假別設定」的週期規則（曆年/週年），自動試算【全體員工】本年度特休。\n\n確定要執行批次試算嗎？`;
-      
-    if (!window.confirm(msg)) return;
-    
+  const handleAutoCalcQuotas = async (forceOverwrite) => {
+    setShowAutoCalcModal(false);
     try {
       setLoading(true);
       await api.post('/leaves/quotas/auto', { 
         year: new Date().getFullYear(),
-        employeeIds: selectedCalcEmpIds.length > 0 ? selectedCalcEmpIds : undefined
+        employeeIds: selectedCalcEmpIds.length > 0 ? selectedCalcEmpIds : undefined,
+        forceOverwrite: !!forceOverwrite
       });
       addToast('年度額度自動試算完成！', 'success');
       fetchQuotas();
@@ -510,7 +507,7 @@ export default function Leaves() {
           <div className="flex items-center gap-3">
             {activeTab === 'quotas' && canManage && (
               <>
-                <button onClick={handleAutoCalcQuotas} disabled={loading} className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors shadow-sm border border-indigo-200 disabled:opacity-50">
+                <button onClick={() => setShowAutoCalcModal(true)} disabled={loading} className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors shadow-sm border border-indigo-200 disabled:opacity-50">
                   🤖 批次試算本年度特休
                 </button>
                 <button onClick={handleCarryOver} disabled={loading} className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-orange-100 transition-colors shadow-sm border border-orange-200 disabled:opacity-50">
@@ -1171,6 +1168,51 @@ export default function Leaves() {
                 {saving ? '送出中...' : '送出加班單'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Auto Calc Overwrite Choice Modal */}
+      {showAutoCalcModal && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-[200] p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 bg-indigo-100 rounded-2xl flex items-center justify-center text-xl">🤖</div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900">批次試算本年度特休</h3>
+                <p className="text-xs text-gray-400 font-bold mt-0.5">
+                  {selectedCalcEmpIds.length > 0 ? `對象：選中的 ${selectedCalcEmpIds.length} 位員工` : '對象：全體員工'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 font-bold mb-6 leading-relaxed">
+              系統將根據「假別設定」的週期規則（曆年／週年）重新試算本年度特休額度。<br />
+              <span className="text-amber-600">⚠️ 部分員工已有手動修改的額度，請選擇處理方式：</span>
+            </p>
+
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={() => handleAutoCalcQuotas(false)}
+                className="w-full text-left p-4 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:border-sky-400 hover:bg-sky-100 transition-all group"
+              >
+                <p className="font-black text-sky-800 text-sm group-hover:text-sky-900">🔒 保留手動修改的值</p>
+                <p className="text-xs text-sky-600 mt-1 font-bold">已手動輸入的額度不會被覆蓋；僅自動填入尚未設定的員工</p>
+              </button>
+              <button
+                onClick={() => handleAutoCalcQuotas(true)}
+                className="w-full text-left p-4 rounded-2xl border-2 border-rose-200 bg-rose-50 hover:border-rose-400 hover:bg-rose-100 transition-all group"
+              >
+                <p className="font-black text-rose-800 text-sm group-hover:text-rose-900">⚡ 全部重新計算（覆蓋手動值）</p>
+                <p className="text-xs text-rose-600 mt-1 font-bold">依假別規則重算所有人，手動修改的值將被覆蓋</p>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowAutoCalcModal(false)}
+              className="w-full py-3 rounded-2xl text-sm font-black text-gray-400 hover:bg-gray-100 transition-all"
+            >
+              取消
+            </button>
           </div>
         </div>
       )}
