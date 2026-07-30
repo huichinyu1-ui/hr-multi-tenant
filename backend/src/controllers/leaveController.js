@@ -768,11 +768,9 @@ exports.autoCalculateQuotas = async (req, res) => {
           const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
           const autoAnnualHours = (lt.default_days || 0) * 8;
           const existingAnnual = annualMap[`${emp.id}_${lt.id}`] || 0;
-          // 若已有手動輸入的 annual_hours，且自動計算結果為 0，則保留手動值，不覆蓋
-          // forceOverwrite=true 時一律重算，不保留手動值
-          const annualHours = (!shouldOverwrite && autoAnnualHours === 0 && existingAnnual > 0)
-            ? existingAnnual
-            : autoAnnualHours;
+          // 保留手動值模式：只要有手動值就跳過，不執行 upsert
+          if (!shouldOverwrite && existingAnnual > 0) continue;
+          const annualHours = autoAnnualHours;
           let valid_from = null;
           let valid_to = null;
           if (lt.calculation_mode === 'ANNIVERSARY') {
@@ -827,6 +825,8 @@ exports.autoCalculateQuotas = async (req, res) => {
 
                if (annualHours > 0) {
                  const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
+                 const existingAnnualSA = annualMap[`${emp.id}_${lt.id}`] || 0;
+                 if (!shouldOverwrite && existingAnnualSA > 0) continue;
                  operations.push(req.db.leaveQuota.upsert({
                    where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
                    update: { annual_hours: annualHours, total_hours: carriedOver + annualHours, valid_from, valid_to },
@@ -869,7 +869,9 @@ exports.autoCalculateQuotas = async (req, res) => {
               // 依據使用者需求：計算直接無條件進位
               const annualHours = Math.ceil(totalAnnualHours);
               const carriedOver = quotaMap[`${emp.id}_${lt.id}`] || 0;
-              
+              const existingAnnual = annualMap[`${emp.id}_${lt.id}`] || 0;
+              // 保留手動值模式：只要有手動值就跳過
+              if (!shouldOverwrite && existingAnnual > 0) continue;
               operations.push(req.db.leaveQuota.upsert({
                 where: { employeeId_leaveTypeId_year: { employeeId: emp.id, leaveTypeId: lt.id, year: targetYear } },
                 update: { annual_hours: annualHours, total_hours: carriedOver + annualHours },
