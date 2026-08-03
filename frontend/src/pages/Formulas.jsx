@@ -197,6 +197,16 @@ export default function Formulas() {
       ])
     },
     {
+      title: '請假扣款金額 (稅率計算用)',
+      vars: [
+        { label: '所有假別扣款合計 {total_leave_deduction}', value: '{total_leave_deduction}' },
+        ...leaveTypes.filter(lt => lt.deduction_ratio > 0).map(lt => ({
+          label: `${lt.name}扣款 {leave_deduction_${lt.code.toLowerCase()}}`,
+          value: `{leave_deduction_${lt.code.toLowerCase()}}`
+        }))
+      ]
+    },
+    {
       title: '邏輯與數學函數',
       isFunctions: true,
       vars: [

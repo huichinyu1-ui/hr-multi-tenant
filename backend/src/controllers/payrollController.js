@@ -16,10 +16,9 @@ exports.calculatePayroll = async (req, res) => {
     const employees = await req.db.employee.findMany({
       where: {
         OR: [
-          { status: 'ACTIVE' },
-          { status: 'RESIGNED', resign_date: { gte: periodStart } },
-          { status: 'RESIGNED', resign_date: null },
-          { status: 'RESIGNED', resign_date: '' }
+          { status: 'ACTIVE', resign_date: null },
+          { status: 'ACTIVE', resign_date: '' },
+          { resign_date: { gte: periodStart } }
         ]
       },
       include: {
@@ -173,6 +172,26 @@ exports.calculatePayroll = async (req, res) => {
           });
         }
       };
+
+      // 【預先計算請假扣款】注入變數池，讓後續公式（如稅率）可引用
+      // 變數：{total_leave_deduction} = 所有假別扣款合計
+      //       {leave_deduction_xxx}   = 個別假別扣款 (xxx = 假別 code 小寫)
+      let _preleave_total = 0;
+      leaveTypes.forEach(lt => {
+        if (lt.deduction_ratio > 0) {
+          const hoursVar = `${lt.code.toLowerCase()}_leave_hours`;
+          const takenHours = pool[hoursVar] || 0;
+          if (takenHours > 0) {
+            const deductionBase = FormulaEngine.calculate(lt.deduction_base || '{base_salary}', pool);
+            const amount = Math.round((deductionBase / 240) * takenHours * lt.deduction_ratio);
+            if (amount > 0) {
+              pool[`leave_deduction_${lt.code.toLowerCase()}`] = amount;
+              _preleave_total += amount;
+            }
+          }
+        }
+      });
+      pool.total_leave_deduction = _preleave_total;
 
       sortedItems.forEach(processItem);
 
