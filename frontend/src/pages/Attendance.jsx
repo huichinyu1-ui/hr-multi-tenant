@@ -60,12 +60,12 @@ export default function Attendance() {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
       return {
         daily: ['date', 'name', 'clock_in_out', 'status', 'late_mins', 'work_mins'],
-        summary: ['code', 'name', 'actual', 'expected', 'late', 'absent']
+        summary: ['code', 'name', 'actual', 'expected', 'late', 'absent', 'absent_hours']
       };
     } catch {
       return {
         daily: ['date', 'name', 'clock_in_out', 'status', 'late_mins', 'work_mins'],
-        summary: ['code', 'name', 'actual', 'expected', 'late', 'absent']
+        summary: ['code', 'name', 'actual', 'expected', 'late', 'absent', 'absent_hours']
       };
     }
   });
@@ -86,6 +86,7 @@ export default function Attendance() {
       { id: 'clock_out_status', label: '下班狀態' },
       { id: 'late_mins', label: '遲到(分)' },
       { id: 'early_mins', label: '早退(分)' },
+      { id: 'absent_hours_daily', label: '曠職/早退(h)' },
       { id: 'work_mins', label: '工時(h)' },
       { id: 'overtime1', label: '1階加班(h)' },
       { id: 'overtime2', label: '2階加班(h)' },
@@ -682,6 +683,16 @@ export default function Attendance() {
                     {visibleColumns.daily?.includes('clock_out_status') && <td className="px-4 py-2 border-r border-gray-200 text-center text-xs">{getSubStatusBadge(r.clock_out_status)}</td>}
                     {visibleColumns.daily?.includes('late_mins') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold text-orange-600">{r.late_mins > 0 ? `${r.late_mins}m` : '--'}</td>}
                     {visibleColumns.daily?.includes('early_mins') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold text-amber-600">{r.early_leave_mins > 0 ? `${r.early_leave_mins}m` : '--'}</td>}
+                    {visibleColumns.daily?.includes('absent_hours_daily') && (
+                      <td className="px-4 py-2 border-r border-gray-200 text-center font-bold text-red-600">
+                        {(() => {
+                          if (r.status === 'ABSENT' && !r.clock_in) return '8h';           // 全日曠職
+                          if (r.status === 'ABSENT' && r.clock_in) return '8h';             // 打卡但未出勤（新情境）
+                          if (r.early_leave_mins > 0) return `${Math.ceil(r.early_leave_mins / 30) * 0.5}h`; // 早退
+                          return '--';
+                        })()}
+                      </td>
+                    )}
                     {visibleColumns.daily?.includes('work_mins') && <td className="px-4 py-2 border-r border-gray-200 text-center text-gray-600 font-mono">{Math.round((r.work_mins||0)/60*2)/2}h</td>}
                     {visibleColumns.daily?.includes('overtime1') && <td className="px-4 py-2 border-r border-gray-200 text-center text-indigo-600 font-bold">{r.overtime1_mins > 0 ? `${Math.round(r.overtime1_mins/60*2)/2}h` : '--'}</td>}
                     {visibleColumns.daily?.includes('overtime2') && <td className="px-4 py-2 border-r border-gray-200 text-center text-purple-600 font-bold">{r.overtime2_mins > 0 ? `${Math.round(r.overtime2_mins/60*2)/2}h` : '--'}</td>}
