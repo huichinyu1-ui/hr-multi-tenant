@@ -181,6 +181,19 @@ class AttendanceMatcher {
             if (parsed.clock_in_status === 'ABSENT') finalStatus = 'ABSENT';
             else if (parsed.late_mins > 0) finalStatus = 'LATE';
             else if (parsed.early_leave_mins > 0) finalStatus = 'EARLY';
+
+            // 【曠職修正】若下班打卡早於上班開始時間（clock_out_status = INVALID）
+            // 代表員工在工作時段開始前就已離開，視為當日無效出勤 → 曠職
+            // 有核准假單時不套用此規則（保留 LEAVE 狀態）
+            if (parsed.clock_out_status === 'INVALID' && !leave) {
+              finalStatus = 'ABSENT';
+              parsed.work_mins = 0;
+              parsed.late_mins = 0;
+              parsed.early_leave_mins = 0;
+              parsed.overtime1_mins = 0;
+              parsed.overtime2_mins = 0;
+            }
+
             let finalLeaveCode = null;
             if (leave) {
               finalStatus = 'PRESENT';
