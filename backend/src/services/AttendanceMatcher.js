@@ -422,7 +422,8 @@ class AttendanceMatcher {
       const lateBuffer = shift ? (shift.late_buffer_mins || 0) : 0;
 
       for (const record of dailyRecords) {
-        const isFullAbsent = record.status === 'ABSENT' && !record.clock_in;
+        // isFullAbsent: status=ABSENT 不論有無打卡（包含 clock_out < work_start 的新曠職情境）
+        const isFullAbsent = record.status === 'ABSENT';
         const isPartialAbsent = record.clock_in && record.late_mins > lateBuffer;
 
         if (record.status === 'PRESENT' || record.status === 'LATE' || record.status === 'EARLY' || isPartialAbsent) present_days += 1;
@@ -443,6 +444,8 @@ class AttendanceMatcher {
         if (record.clock_out && record.early_leave_mins > 0) {
           early_leave_count += 1;
           early_leave_hours_total += Math.ceil(record.early_leave_mins / 30) * 0.5;
+          // 早退時數一併計入曠職時數，方便統一以 {absent_hours} 計算扣薪
+          absent_hours_total += Math.ceil(record.early_leave_mins / 30) * 0.5;
         }
 
         work_mins_total += record.work_mins || 0;
@@ -578,7 +581,8 @@ class AttendanceMatcher {
       const lateBuffer = shift ? (shift.late_buffer_mins || 0) : 0;
 
       for (const record of dailyRecords) {
-        const isFullAbsent = record.status === 'ABSENT' && !record.clock_in;
+        // isFullAbsent: status=ABSENT 不論有無打卡（包含 clock_out < work_start 的新曠職情境）
+        const isFullAbsent = record.status === 'ABSENT';
         const isPartialAbsent = record.clock_in && record.late_mins > lateBuffer;
 
         if (record.status === 'PRESENT' || record.status === 'LATE' || record.status === 'EARLY' || isPartialAbsent) present_days += 1;
@@ -589,7 +593,7 @@ class AttendanceMatcher {
         
         if (record.clock_in && record.late_mins > 0) {
           if (record.late_mins > lateBuffer) {
-            absent_count += 1; // 超過緩衝計入曠職次數
+            absent_count += 1;
             absent_hours_total += Math.ceil(record.late_mins / 30) * 0.5;
           } else {
             late_days += 1;
@@ -600,6 +604,8 @@ class AttendanceMatcher {
         if (record.clock_out && record.early_leave_mins > 0) {
           early_leave_count += 1;
           early_leave_hours_total += Math.ceil(record.early_leave_mins / 30) * 0.5;
+          // 早退時數一併計入曠職時數，方便統一以 {absent_hours} 計算扣薪
+          absent_hours_total += Math.ceil(record.early_leave_mins / 30) * 0.5;
         }
 
         work_mins_total += record.work_mins || 0;
