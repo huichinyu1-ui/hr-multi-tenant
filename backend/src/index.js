@@ -6,6 +6,36 @@ dotenv.config();
 
 const app = express();
 
+// 【Vercel 路由代理修復】當 Vercel Serverless 重寫路徑為 /src/index.js 時，自代理或重寫參數還原客戶端實際發送的 API 完整路徑
+app.use((req, res, next) => {
+  try {
+    const urlObj = new URL(req.url, 'http://localhost');
+    let orig = urlObj.searchParams.get('__origPath') || 
+               req.headers['x-forwarded-uri'] || 
+               req.headers['x-matched-path'] || 
+               req.headers['x-invoke-path'];
+
+    // 若 Vercel 帶入 x-now-route-matches (例如 "1=employees%2Flogin")
+    if (!orig && req.headers['x-now-route-matches']) {
+      const matchParams = new URLSearchParams(req.headers['x-now-route-matches']);
+      const captured = matchParams.get('1');
+      if (captured) orig = '/api/' + captured;
+    }
+
+    if (orig) {
+      urlObj.searchParams.delete('__origPath');
+      const q = urlObj.searchParams.toString();
+      req.url = orig + (q ? (orig.includes('?') ? '&' : '?') + q : '');
+    } else if (req.url.startsWith('/src/index.js')) {
+      const after = req.url.slice('/src/index.js'.length);
+      req.url = after ? (after.startsWith('/') ? after : '/' + after) : '/';
+    }
+  } catch (e) {
+    console.error('[URL normalization error]', e);
+  }
+  next();
+});
+
 // 明確設定 CORS，處理所有來源（包括自訂標頭的 Preflight OPTIONS 請求）
 const corsOptions = {
   origin: '*',

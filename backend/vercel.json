@@ -19,11 +19,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/src/index.js"
+      "destination": "/src/index.js?__origPath=/api/$1"
     },
     {
       "source": "/(.*)",
-      "destination": "/src/index.js"
+      "destination": "/src/index.js?__origPath=/$1"
     }
   ]
 }
