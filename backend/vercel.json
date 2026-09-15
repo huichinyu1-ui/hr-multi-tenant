@@ -1,6 +1,9 @@
 {
   "version": 2,
   "functions": {
+    "api/index.js": {
+      "includeFiles": "prisma/**, src/data/**"
+    },
     "src/index.js": {
       "includeFiles": "prisma/**, src/data/**"
     }
@@ -18,12 +21,8 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/src/index.js?__origPath=/api/$1"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/src/index.js?__origPath=/$1"
+      "destination": "/api/index.js"
     }
   ]
 }
