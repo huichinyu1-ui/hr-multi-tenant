@@ -85,8 +85,9 @@ exports.uploadExcel = async (req, res) => {
       let finalStatus = 'PRESENT';
       if (employee.workShift) {
         parsedStats = AttendanceMatcher.parseAttendance({ clock_in: final_clock_in, clock_out: final_clock_out }, employee.workShift);
-        if (parsedStats.clock_in_status === 'ABSENT') finalStatus = 'ABSENT';
-        else if (parsedStats.late_mins > 0) finalStatus = 'LATE';
+        if (parsedStats.clock_in_status === 'ABSENT' || (!final_clock_in || !final_clock_out) || parsedStats.clock_out_status === 'INVALID') {
+          finalStatus = 'ABSENT';
+        } else if (parsedStats.late_mins > 0) finalStatus = 'LATE';
         else if (parsedStats.early_leave_mins > 0) finalStatus = 'EARLY';
       }
 

@@ -182,6 +182,16 @@ class AttendanceMatcher {
             else if (parsed.late_mins > 0) finalStatus = 'LATE';
             else if (parsed.early_leave_mins > 0) finalStatus = 'EARLY';
 
+            // 【缺卡判定】若上班未打卡或下班未打卡，且無核准假單 -> 視為曠職 (ABSENT)
+            if ((!effectiveClockIn || !effectiveClockOut) && !leave) {
+              finalStatus = 'ABSENT';
+              parsed.work_mins = 0;
+              parsed.late_mins = 0;
+              parsed.early_leave_mins = 0;
+              parsed.overtime1_mins = 0;
+              parsed.overtime2_mins = 0;
+            }
+
             // 【曠職修正】若下班打卡早於上班開始時間（clock_out_status = INVALID）
             // 代表員工在工作時段開始前就已離開，視為當日無效出勤 → 曠職
             // 有核准假單時不套用此規則（保留 LEAVE 狀態）
@@ -204,6 +214,8 @@ class AttendanceMatcher {
               leave_code: finalLeaveCode,
               late_mins: leave ? 0 : parsed.late_mins,
               early_leave_mins: leave ? 0 : parsed.early_leave_mins,
+              clock_in_status: parsed.clock_in_status,
+              clock_out_status: parsed.clock_out_status,
               work_mins: parsed.work_mins,
               overtime1_mins: parsed.overtime1_mins,
               overtime2_mins: parsed.overtime2_mins,
@@ -266,36 +278,42 @@ class AttendanceMatcher {
       clock_out_status: null
     };
 
-    if (!shift || !record.clock_in) return result;
+    if (!shift || (!record.clock_in && !record.clock_out)) return result;
 
-    const clockInMins = timeToMins(record.clock_in);
+    const clockInMins = record.clock_in ? timeToMins(record.clock_in) : null;
     const clockOutMins = record.clock_out ? timeToMins(record.clock_out) : null;
 
     const workStartMins = timeToMins(shift.work_start);
     const workEndMins = timeToMins(shift.work_end);
 
     // 1. 上班判定
-    // 讀取班別設定的寬限期 (預設 4 小時)
-    const earlyLimit = workStartMins - (shift.punch_in_window_mins || 240); 
-    const lateBuffer = shift.late_buffer_mins || 0;
-
-    if (clockInMins < earlyLimit) {
-      result.clock_in_status = 'TOO_EARLY';
-    } else if (clockInMins > workStartMins) {
-      const delayMins = clockInMins - workStartMins;
-      if (delayMins <= lateBuffer) {
-        result.late_mins = delayMins;
-        result.clock_in_status = 'LATE';
-      } else {
-        result.late_mins = 0; // 超過緩衝轉為曠職，清空遲到分鐘
-        result.clock_in_status = 'ABSENT'; 
-      }
+    if (clockInMins === null) {
+      result.clock_in_status = 'INVALID';
     } else {
-      result.clock_in_status = 'NORMAL';
+      // 讀取班別設定的寬限期 (預設 4 小時)
+      const earlyLimit = workStartMins - (shift.punch_in_window_mins || 240); 
+      const lateBuffer = shift.late_buffer_mins || 0;
+
+      if (clockInMins < earlyLimit) {
+        result.clock_in_status = 'TOO_EARLY';
+      } else if (clockInMins > workStartMins) {
+        const delayMins = clockInMins - workStartMins;
+        if (delayMins <= lateBuffer) {
+          result.late_mins = delayMins;
+          result.clock_in_status = 'LATE';
+        } else {
+          result.late_mins = 0; // 超過緩衝轉為曠職，清空遲到分鐘
+          result.clock_in_status = 'ABSENT'; 
+        }
+      } else {
+        result.clock_in_status = 'NORMAL';
+      }
     }
 
     // 2. 下班判定
-    if (clockOutMins !== null) {
+    if (clockOutMins === null) {
+      result.clock_out_status = 'INVALID';
+    } else {
       // 如果下班時間比上班時間還早，或者是凌晨打卡
       if (clockOutMins < workStartMins) {
         result.clock_out_status = 'INVALID';
@@ -306,22 +324,24 @@ class AttendanceMatcher {
         result.clock_out_status = 'NORMAL';
       }
 
-      // 3. 計算工時
-      let grossWork = clockOutMins - clockInMins;
-      if (shift.rest_start && shift.rest_end) {
-        const restStartMins = timeToMins(shift.rest_start);
-        const restEndMins = timeToMins(shift.rest_end);
-        const overlapStart = Math.max(clockInMins, restStartMins);
-        const overlapEnd = Math.min(clockOutMins, restEndMins);
-        if (overlapEnd > overlapStart) {
-          grossWork -= (overlapEnd - overlapStart);
+      // 3. 計算工時（只有上下班皆有打卡時才計算工時）
+      if (clockInMins !== null) {
+        let grossWork = clockOutMins - clockInMins;
+        if (shift.rest_start && shift.rest_end) {
+          const restStartMins = timeToMins(shift.rest_start);
+          const restEndMins = timeToMins(shift.rest_end);
+          const overlapStart = Math.max(clockInMins, restStartMins);
+          const overlapEnd = Math.min(clockOutMins, restEndMins);
+          if (overlapEnd > overlapStart) {
+            grossWork -= (overlapEnd - overlapStart);
+          }
         }
+        result.work_mins = Math.max(0, grossWork);
       }
-      result.work_mins = Math.max(0, grossWork);
 
-      // 4. 加班計算
+      // 4. 加班計算（只有在上班亦有打卡且未被標記無效時計算）
       const overtimeStartMins = shift.overtime_start ? timeToMins(shift.overtime_start) : workEndMins;
-      if (clockOutMins > overtimeStartMins) {
+      if (clockOutMins > overtimeStartMins && clockInMins !== null) {
         const totalOtMins = clockOutMins - overtimeStartMins;
         const otUnit = shift.overtime_min_unit || 30;
 
