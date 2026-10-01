@@ -123,6 +123,7 @@ export default function Leaves() {
       { id: 'start', label: '開始時間' },
       { id: 'end', label: '結束時間' },
       { id: 'hours', label: '時數' },
+      { id: 'reason', label: '申請事由' },
       { id: 'status', label: '狀態' }
     ],
     overtime: [
@@ -675,6 +676,7 @@ export default function Leaves() {
                   {visibleColumns.requests?.includes('type') && <SortHeader id="type" label="假別" /> }
                   {visibleColumns.requests?.includes('start') || visibleColumns.requests?.includes('end') ? <SortHeader id="start" label="請假期間 (起 ~ 訖)" /> : null}
                   {visibleColumns.requests?.includes('hours') && <SortHeader id="hours" label="合計時數" align="center" /> }
+                  {visibleColumns.requests?.includes('reason') && <SortHeader id="reason" label="申請事由" /> }
                   {visibleColumns.requests?.includes('status') && <SortHeader id="status" label="審核狀態" align="center" /> }
                   <th className="px-4 py-2 text-center">操作</th>
                 </tr>
@@ -704,6 +706,11 @@ export default function Leaves() {
                       </td>
                     )}
                     {visibleColumns.requests?.includes('hours') && <td className="px-4 py-2 border-r border-gray-200 text-center font-bold text-indigo-600">{Math.round(req.days * 8)}h</td>}
+                    {visibleColumns.requests?.includes('reason') && (
+                      <td className="px-4 py-2 border-r border-gray-200 text-gray-600 max-w-[200px]">
+                        <span className="block truncate" title={req.reason || ''}>{req.reason || '—'}</span>
+                      </td>
+                    )}
                     {visibleColumns.requests?.includes('status') && (
                       <td className="px-4 py-2 border-r border-gray-200 text-center">
                         <span className={`px-2 py-1 rounded font-black text-[10px] uppercase shadow-sm ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
