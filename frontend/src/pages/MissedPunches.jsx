@@ -281,10 +281,6 @@ export default function MissedPunches() {
                               : 'border-gray-200'
                           }`}
                         />
-                        {/* 固定提示：24 小時制說明 */}
-                        <p className="mt-1 text-[10px] text-gray-400">
-                          請使用 24 小時制，例如下午 5:30 請填 <span className="font-bold text-gray-600">17:30</span>
-                        </p>
                         {/* 動態警告：下班補打但時間在上午 */}
                         {form.punch_type === 'OUT' && form.target_time && form.target_time < '12:00' && (
                           <p className="mt-1 text-[10px] font-bold text-orange-600 flex items-center gap-1">
