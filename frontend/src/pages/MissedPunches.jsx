@@ -392,9 +392,6 @@ export default function MissedPunches() {
                           </td>
                           <td className="px-4 py-3 font-black text-indigo-600">
                             <span>{req.target_time}</span>
-                            <span className="ml-1 text-[10px] font-bold text-gray-400">
-                              {req.target_time < '12:00' ? 'AM' : 'PM'}
-                            </span>
                             {/* 下班補打但時間在上午，顯示警告 */}
                             {req.punch_type === 'OUT' && req.target_time < '12:00' && (
                               <span className="ml-1 text-orange-500" title="⚠️ 下班補打時間在上午，請確認是否填寫正確（24小時制）">⚠️</span>
