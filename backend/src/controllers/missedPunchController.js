@@ -74,7 +74,41 @@ exports.approveRequest = async (req, res) => {
     if (status === 'APPROVED') {
       const { employeeId, date, punch_type, target_time } = request;
       const is_in = punch_type === 'IN';
-      
+
+      // 【時間合理性驗證】查詢員工班別，防止 AM/PM 填錯導致異常曠職
+      try {
+        const employee = await req.db.employee.findUnique({
+          where: { id: employeeId },
+          include: { workShift: true }
+        });
+        const shift = employee?.workShift;
+        if (shift && shift.code !== 'EXEMPT') {
+          const timeToMins = (t) => {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+          };
+          const targetMins = timeToMins(target_time);
+          const workStartMins = timeToMins(shift.work_start);
+          const workEndMins = timeToMins(shift.work_end);
+
+          // 下班補打：時間早於上班時間 → 明顯錯誤（如填 05:00 而非 17:00）
+          if (!is_in && targetMins < workStartMins) {
+            return res.status(400).json({
+              error: `下班補打時間（${target_time}）早於上班時間（${shift.work_start}），請確認是否為 24 小時制格式（例如下午 5 點應填 17:00）`
+            });
+          }
+          // 上班補打：時間晚於下班時間 → 明顯錯誤（如填 17:00 而非 07:00）
+          if (is_in && targetMins > workEndMins) {
+            return res.status(400).json({
+              error: `上班補打時間（${target_time}）晚於下班時間（${shift.work_end}），請確認是否為 24 小時制格式`
+            });
+          }
+        }
+      } catch (validateError) {
+        console.warn('[MissedPunch] 時間驗證查詢失敗（非阻擋性）:', validateError.message);
+        // 驗證失敗不阻擋核准流程，僅記錄 warning
+      }
+
       try {
         // 使用更穩定的 upsert 結構
         await req.db.dailyRecord.upsert({

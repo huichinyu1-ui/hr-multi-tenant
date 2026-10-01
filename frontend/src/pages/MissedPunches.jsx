@@ -275,8 +275,25 @@ export default function MissedPunches() {
                         <input
                           type="time" required value={form.target_time}
                           onChange={e => setForm({...form, target_time: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                          className={`w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${
+                            form.punch_type === 'OUT' && form.target_time && form.target_time < '12:00'
+                              ? 'border-orange-400 bg-orange-50'
+                              : 'border-gray-200'
+                          }`}
                         />
+                        {/* 固定提示：24 小時制說明 */}
+                        <p className="mt-1 text-[10px] text-gray-400">
+                          請使用 24 小時制，例如下午 5:30 請填 <span className="font-bold text-gray-600">17:30</span>
+                        </p>
+                        {/* 動態警告：下班補打但時間在上午 */}
+                        {form.punch_type === 'OUT' && form.target_time && form.target_time < '12:00' && (
+                          <p className="mt-1 text-[10px] font-bold text-orange-600 flex items-center gap-1">
+                            ⚠️ 下班時間通常在下午，請確認是否應為{' '}
+                            <span className="underline">
+                              {String(parseInt(form.target_time.split(':')[0]) + 12).padStart(2,'0')}:{form.target_time.split(':')[1]}
+                            </span>
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div>
@@ -377,7 +394,20 @@ export default function MissedPunches() {
                               {req.punch_type === 'IN' ? '上班' : '下班'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 font-black text-indigo-600">{req.target_time}</td>
+                          <td className="px-4 py-3 font-black text-indigo-600">
+                            <span>{req.target_time}</span>
+                            <span className="ml-1 text-[10px] font-bold text-gray-400">
+                              {req.target_time < '12:00' ? 'AM' : 'PM'}
+                            </span>
+                            {/* 下班補打但時間在上午，顯示警告 */}
+                            {req.punch_type === 'OUT' && req.target_time < '12:00' && (
+                              <span className="ml-1 text-orange-500" title="⚠️ 下班補打時間在上午，請確認是否填寫正確（24小時制）">⚠️</span>
+                            )}
+                            {/* 上班補打但時間在下午，顯示警告 */}
+                            {req.punch_type === 'IN' && req.target_time >= '12:00' && (
+                              <span className="ml-1 text-orange-500" title="⚠️ 上班補打時間在下午，請確認是否填寫正確（24小時制）">⚠️</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-gray-500 text-xs max-w-[150px] truncate" title={req.reason}>{req.reason || '—'}</td>
                           <td className="px-4 py-3">{statusBadge(req.status)}</td>
                           <td className="px-4 py-3">
