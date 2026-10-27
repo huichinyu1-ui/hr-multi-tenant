@@ -4,7 +4,7 @@ import { usePermission } from '../contexts/PermissionContext';
 
 // 假別顏色對照（依名稱關鍵字）
 const getLeaveColor = (typeName = '') => {
-  if (typeName.includes('年') || typeName.includes('特休')) return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' };
+  if (typeName.includes('年') || typeName.includes('特休') || typeName.includes('特別休假')) return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' };
   if (typeName.includes('病')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' };
   if (typeName.includes('事')) return { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' };
   if (typeName.includes('婚')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200', dot: 'bg-pink-500' };
@@ -75,6 +75,7 @@ export default function Calendar() {
   const [leaveMap, setLeaveMap] = useState({}); // { 'YYYY-MM-DD': [leaveRequest, ...] }
   const [loading, setLoading] = useState(false);
   const [popoverDate, setPopoverDate] = useState(null); // 目前打開 Popover 的日期
+  const [menuDay, setMenuDay] = useState(null); // 目前打開二選一選單的日期物件
 
   const { hasPermission, isAdmin } = usePermission();
   const canManage = hasPermission('CALENDAR', 'canEdit') || isAdmin;
@@ -158,6 +159,18 @@ export default function Calendar() {
     } catch (e) { alert('更新失敗'); }
   };
 
+  // 僅修改備註文字，不改變工作日／假日狀態
+  const handleEditNote = async (day) => {
+    const defaultText = (day.description === '工作日' || day.description === '假日') ? '' : (day.description || '');
+    const newDesc = prompt('請輸入備註文字 (例如: 颱風假)，留空則還原預設:', defaultText);
+    if (newDesc === null) return;
+    const finalDesc = newDesc.trim() || (day.is_workday ? '工作日' : '假日');
+    try {
+      await api.post('/calendar/upsert', { date: day.date, is_workday: day.is_workday, description: finalDesc });
+      fetchAll();
+    } catch (e) { alert('更新失敗'); }
+  };
+
   const handleEditDescription = async (e, day) => {
     e.stopPropagation();
     const newDesc = prompt('請修改名稱:', day.description || '');
@@ -200,7 +213,7 @@ export default function Calendar() {
             >
               📥 同步 {yearMonth.split('-')[0]} 年政府行事曆
             </button>
-            <span className="text-xs text-gray-500 max-w-xs ml-auto">提示：點擊格子可切換工作日/假日；點擊假別名稱右側小圖示可直接修改名稱。</span>
+            <span className="text-xs text-gray-500 max-w-xs ml-auto">提示：點擊格子可選擇「設為假日／工作日」或「僅修改備註（仍為工作日）」；備註為琥珀色代表仍是工作日。</span>
           </>
         )}
       </div>
@@ -239,16 +252,16 @@ export default function Calendar() {
           return (
             <div
               key={day.id}
-              onClick={() => canManage && handleToggleWorkday(day)}
+              onClick={() => canManage && setMenuDay(day)}
               className={`relative border rounded-lg text-center ${canManage ? 'cursor-pointer' : 'cursor-default'} transition-colors flex flex-col ${day.is_workday ? 'bg-white hover:bg-gray-50 border-gray-200' : 'bg-red-50 hover:bg-red-100 border-red-200 text-red-800 shadow-sm'}`}
               style={{ gridColumnStart: day.date.endsWith('-01') ? dayOfWeek + 1 : 'auto', minHeight: '110px' }}
-              title={canManage ? '點擊切換工作日/假日' : ''}
+              title={canManage ? '點擊選擇：切換假日／修改備註' : ''}
             >
               {/* 日期數字與名稱 */}
               <div className="pt-2 px-2">
                 <div className={`text-lg font-black ${!day.is_workday && 'text-red-600'}`}>{day.date.split('-')[2]}</div>
                 <div className="flex items-center justify-center gap-1 group mt-0.5">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${day.is_workday ? 'bg-gray-100 text-gray-500' : 'bg-red-200 text-red-800 font-semibold'} max-w-[72px] truncate`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${!day.is_workday ? 'bg-red-200 text-red-800 font-semibold' : (day.description && day.description !== '工作日') ? 'bg-amber-100 text-amber-700 font-semibold border border-amber-200' : 'bg-gray-100 text-gray-500'} max-w-[72px] truncate`}>
                     {day.description || (day.is_workday ? '工作日' : '假日')}
                   </span>
                   {canManage && (
@@ -314,6 +327,55 @@ export default function Calendar() {
 
       {days.length === 0 && (
         <div className="text-center text-gray-500 py-10 mt-4">此月份尚未建立行事曆，請點擊上方按鈕產生或同步政府資料。</div>
+      )}
+
+      {/* 點擊日期後的二選一選單 */}
+      {menuDay && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => setMenuDay(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-80 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-indigo-600 px-5 py-3">
+              <p className="text-white font-black text-sm">📅 {menuDay.date}</p>
+              <p className="text-indigo-200 text-[11px] mt-0.5">
+                目前：{menuDay.is_workday ? '工作日' : '假日'}
+                {menuDay.description ? `（${menuDay.description}）` : ''}
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <button
+                onClick={() => { const d = menuDay; setMenuDay(null); handleToggleWorkday(d); }}
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:bg-red-50 hover:border-red-200 transition-colors"
+              >
+                <p className="text-sm font-bold text-gray-800">
+                  {menuDay.is_workday ? '🔴 設為假日' : '🟢 設為工作日'}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {menuDay.is_workday ? '改為非工作日（不計入應出勤天數）' : '恢復為工作日'}
+                </p>
+              </button>
+              <button
+                onClick={() => { const d = menuDay; setMenuDay(null); handleEditNote(d); }}
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:bg-amber-50 hover:border-amber-200 transition-colors"
+              >
+                <p className="text-sm font-bold text-gray-800">📝 修改備註文字</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  只改備註（例如：颱風假），不改變工作日／假日狀態
+                </p>
+              </button>
+              <button
+                onClick={() => setMenuDay(null)}
+                className="w-full px-4 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100 transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
